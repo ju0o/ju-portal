@@ -148,10 +148,10 @@ Each skill may carry: `title`, `summary`, `compatibleAgents`, `version`,
 Read only these. No hardcoded origins anywhere in the app.
 
 ```bash
-NEXT_PUBLIC_SITE_URL=https://ju-portal.vercel.app
+NEXT_PUBLIC_SITE_URL=https://ju-portal-one.vercel.app
 NEXT_PUBLIC_GITHUB_ORG=ju0o
 NEXT_PUBLIC_ANALYTICS_ENABLED=true
-PUBLIC_MEDIA_BASE_URL=https://ju-portal.vercel.app/media
+PUBLIC_MEDIA_BASE_URL=https://ju-portal-one.vercel.app/media
 RELEASE_PROVIDER_DEFAULT=github_release
 RELEASE_RESOLVER_MODE=build
 RELEASE_CACHE_TTL_SECONDS=900
@@ -159,6 +159,9 @@ RADAR_ORIGIN=https://juradar-907c6.web.app
 NEXT_PUBLIC_CONTACT_URL=          # optional
 RELEASE_GITHUB_TOKEN=             # optional, public repos need none
 ```
+
+The production origin is `https://ju-portal-one.vercel.app` — read it from
+`NEXT_PUBLIC_SITE_URL` and never hardcode an assumed slug.
 
 - `NEXT_PUBLIC_*` is **inlined into the client bundle at build time.** Nothing
   secret may ever carry that prefix. There are no server secrets at V0.
@@ -204,11 +207,16 @@ because no PII is collected — do not add tracking that would create one.
 ```bash
 git checkout -b feature/...
 # ... build ...
-npm run verify        # must pass — this is the Vercel build
-npm run verify:links  # check your CTAs resolve
+npm run verify        # must pass - this is the Vercel build gate
+npm run verify:links  # checks your real CTA URLs resolve
 git push -u origin feature/...
 # open a PR
 ```
+
+If you adopt a framework preset, update `vercel.json` `outputDirectory` and remove
+the `build-static` step from the build script. If you stay on the plain static
+preset, keep both - `build-static.mjs` is what keeps the repo out of the public URL
+space.
 
 I verify the Preview URL, then merge. Merge to `main` = production deploy. I run
 the post-deploy checks and report the verified state to the Founder.
