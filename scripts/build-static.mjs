@@ -27,8 +27,15 @@ async function copyIfPresent(rel) {
   } catch {
     return false;
   }
+  await mkdir(join(OUT, rel.split('/').slice(0, -1).join('/') || OUT), { recursive: true });
   await cp(join(ROOT, rel), join(OUT, rel), { recursive: true });
+  console.log('[build-static] copied ' + rel);
   return true;
+}
+
+/** True for documentation files that must never enter the public URL space. */
+function isDoc(name) {
+  return name.toLowerCase().endsWith('.md');
 }
 
 /**
@@ -38,6 +45,9 @@ async function copyIfPresent(rel) {
  * /media/x.v1.mp4 to satisfy the Registry media-path contract. Copying the
  * directory itself would serve it at /public/media/x.v1.mp4 instead, which is
  * exactly the bug this step exists to prevent.
+ *
+ * Documentation is stripped RECURSIVELY: public/media/README.md is Builder
+ * guidance, and shipping it would make it a public page.
  */
 async function flattenPublic() {
   let entries;
@@ -47,10 +57,22 @@ async function flattenPublic() {
     return false;
   }
   for (const e of entries) {
-    // Documentation lives in the repo, not in the public URL space. A README under
-    // public/ is Builder guidance, and shipping it would make it a public page.
-    if (e.isFile() && e.name.toLowerCase().endsWith('.md')) continue;
+    if (e.isFile()) {
+      if (isDoc(e.name)) continue;
+      await cp(join(ROOT, 'public', e.name), join(OUT, e.name), { recursive: true });
+      continue;
+    }
+    // directory: copy, then delete any docs that came along
     await cp(join(ROOT, 'public', e.name), join(OUT, e.name), { recursive: true });
+    const stack = [join(OUT, e.name)];
+    while (stack.length) {
+      const dir = stack.pop();
+      for (const child of await readdir(dir, { withFileTypes: true })) {
+        const full = join(dir, child.name);
+        if (child.isDirectory()) stack.push(full);
+        else if (isDoc(child.name)) await rm(full, { force: true });
+      }
+    }
   }
   return true;
 }
