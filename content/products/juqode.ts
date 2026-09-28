@@ -7,13 +7,14 @@ export default {
     'Claude Code에 자연어로 지시하고, 바뀐 내용을 읽을 수 있는 카드로 확인하는 데스크톱 워크벤치.',
   status: 'available',
   media: {
-    // Immutable by construction: the asset sits under a pinned release tag, so this
-    // URL can never be reused for different bytes. No local re-encode needed yet.
-    overviewVideoExternal: {
-      externalUrl:
-        'https://github.com/ju0o/JuQode/releases/download/demo-v0.1/juqode-usage.mp4',
-      version: 'demo-v0.1',
+    // LOCAL, versioned, immutable. Hosted on the Portal CDN rather than the GitHub
+    // Release asset: release assets serve as application/octet-stream with no
+    // accept-ranges, so they are not a reliable <video> source. 878 KB is far
+    // under the 25 MB inline tier, so it belongs here.
+    overviewVideo: {
+      path: '/media/juqode/overview.v1.mp4',
       byteSize: 878203,
+      alt: 'JuQode 실사용 영상',
     },
     // Intended but absent. Recorded as intent, never as a phantom path.
     pending: ['poster'],
