@@ -1,0 +1,35 @@
+name: verify
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  registry:
+    name: registry (offline, deterministic)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # The same command the Vercel build runs. Must be green for the deploy to exist.
+      - name: verify registry
+        run: npm run verify
+
+  links:
+    name: CTA reachability (network)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Founder rule: no broken CTA. Blocking on main, advisory on PRs.
+      - name: verify CTA targets
+        run: npm run verify:links

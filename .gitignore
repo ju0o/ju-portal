@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+dist/
+.vercel/
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+public/media/**.tmp
