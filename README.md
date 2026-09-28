@@ -28,15 +28,18 @@ The Builder Agent replaces `index.html` with the real application. See
 
 | | |
 |---|---|
-| Production | `https://ju-portal.vercel.app` |
+| Production | `https://ju-portal-one.vercel.app` |
 | Preview | automatic, per branch / PR |
 | Plan | Vercel Hobby — **₩0/month** |
 | Serverless functions | none, by contract |
 
+> The production origin is `ju-portal-one.vercel.app`. Vercel assigned the suffixed
+> slug on project creation; `ju-portal.vercel.app` was never assigned and 404s.
+
 ## Commands
 
 ```bash
-npm run verify         # offline registry validation — this is the Vercel build
+npm run verify         # offline registry validation - the build gate
 npm run verify:links   # network: every CTA target must resolve
 npm run typecheck      # requires typescript
 ```
@@ -55,7 +58,7 @@ verified live target. Verified 2026-09-29:
 
 | Candidate | Result | Placement |
 |---|---|---|
-| JuQode | ✅ Release `demo-v0.1` — exe + zip + `juqode-usage.mp4` | Products |
+| JuQode | ✅ Release `demo-v0.1` — exe + zip — and `overview.v1.mp4` hosted here | Products |
 | JuTell | ✅ npm `jutell@2.0.1` (4 GitHub releases but **0 assets**, so npm is the real path) | Products |
 | JuDoctor | ❌ 0 releases, 0 tags | Labs |
 | JuControler | ❌ 0 releases, 0 tags | Labs |
