@@ -7,6 +7,10 @@ entire interface between us.
 
 If something you need is not in this document, **ask Infra** before inventing it.
 
+**Read `docs/SSOT.md` first** — it maps every concern to its one authoritative file,
+including the ones Infra owns (`JU_PORTAL_INFRA_CONTRACT.md`, `src/registry/action.ts`,
+`.env.example`). The Infra contract lives **in this repository**, not in a chat log.
+
 ---
 
 ## 0. What already exists in this repo
@@ -14,10 +18,14 @@ If something you need is not in this document, **ask Infra** before inventing it
 ```
 content/{products,skills,labs,radar}/*.ts   Registry - the single source of truth
 src/registry/types.ts                       NORMATIVE types
+src/registry/action.ts                      getPrimaryAction() - implemented, use it
 scripts/verify-registry.mjs                 offline validator - IS the Vercel build
+scripts/build-static.mjs                    assembles dist/ - the only published surface
 scripts/verify-links.mjs                    network CTA reachability - CI only
 public/media/                               versioned local media assets
 vercel.json                                 hosting config
+JU_PORTAL_INFRA_CONTRACT.md                 authoritative Infra contract
+docs/SSOT.md                                index of every canonical file
 docs/BUILDER_INTERFACE.md                   this file
 infra/RUNBOOK.md                            how Infra operates the pipeline
 index.html                                  infra smoke test - REPLACE THIS
@@ -106,15 +114,21 @@ Adding a video later is a Registry edit plus one file. **No component change.**
 You call one function. You never branch on provider.
 
 ```ts
-getPrimaryAction(entry) → { verb, href, command?, version? } | null
+import { getPrimaryAction } from '../../src/registry/action';
+const action = getPrimaryAction(entry);
 ```
+
+**The resolver is already implemented at `src/registry/action.ts`. Use it — do not
+reimplement it and do not branch on `provider` inside a component.** That module is
+Infra-owned and is the single place these rules are enforced.
 
 - `verb` is one of exactly four: **`Download` | `Install` | `Open` | `Try`**.
 - **A provider name must never appear in user-facing text.** No "Download from
   GitHub Releases". No "npm". The user sees the verb and the outcome.
-- Returns `null` when nothing resolves → render the button **disabled** with the
-  label `Coming soon`. **Never render a link that 404s.**
-- `npm` / `pypi` entries expose a copyable `command` block.
+- `action.resolved === false` → render the button **disabled** with the label
+  `Coming soon`. **Never render a link that 404s.**
+- `npm` / `pypi` entries expose `action.command`, a copyable string.
+- `action.provider` exists for analytics only. **Never render it.**
 
 Supported providers: `github_release`, `npm`, `pypi`, `web`, `direct`,
 `microsoft_store`, `app_store`, `google_play`. Users of providers outside this set
