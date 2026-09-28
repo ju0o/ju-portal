@@ -19,6 +19,15 @@ import { join, relative, sep } from 'node:path';
 const UA = { 'User-Agent': 'ju-portal-infra', Accept: '*/*' };
 const TIMEOUT_MS = 15000;
 
+/**
+ * Statuses that mean "a bot was refused", not "the target is broken".
+ * npmjs.com and GitHub both answer 403/429 to non-browser clients. Package
+ * EXISTENCE is proven authoritatively by registry.npmjs.org / pypi.org, so a
+ * bot-refusal on the human-facing page must not fail the build. A refused
+ * DOWNLOAD target is a real failure - that is the promise the user relies on.
+ */
+const BOT_REFUSAL = new Set([401, 403, 429]);
+
 let failures = 0;
 let skips = 0;
 let checked = 0;
@@ -90,9 +99,17 @@ for (const f of files) {
   }
   while ((m = extRE.exec(src)) !== null) targets.push({ rel, kind: 'media', url: m[1] });
   while ((m = pkgRE.exec(src)) !== null) {
-    // the packument lives at the bare registry path, NOT /json
+    // The packument lives at the bare registry path, NOT /json. This is the
+    // authoritative existence check.
     const base = m[1] === 'npm' ? 'https://registry.npmjs.org/' : 'https://pypi.org/pypi/';
-    targets.push({ rel, kind: 'pkg', url: base + m[2] });
+    targets.push({ rel, kind: 'registry', url: base + m[2] });
+    // The human-facing destination the Install CTA actually renders. Bot-refused
+    // responses here are a SKIP, because registry existence already passed.
+    targets.push({
+      rel,
+      kind: 'page',
+      url: m[1] === 'npm' ? 'https://www.npmjs.com/package/' + m[2] : 'https://pypi.org/project/' + m[2] + '/',
+    });
   }
 
   // Resolve github_release to the REAL download URL the user will click.
@@ -125,11 +142,19 @@ for (const t of uniq) {
   checked++;
   const label = '[' + t.kind + ']';
   const where = t.rel + ' ';
+  const botRefused = BOT_REFUSAL.has(r.status);
+  // A refused page is fine - the authoritative existence check already ran. A
+  // refused download is not: that URL is the user's actual promise.
   if (r.network) {
     console.log('  SKIP  ' + where + label + ' ' + t.url + ' (' + r.error + ')');
     skips++;
   } else if (r.ok) {
     console.log('  ok    ' + where + label + ' ' + r.status + ' ' + t.url);
+  } else if (botRefused && t.kind !== 'download' && t.kind !== 'media') {
+    console.log(
+      '  SKIP  ' + where + label + ' ' + r.status + ' ' + t.url + ' (bot refusal; existence verified separately)',
+    );
+    skips++;
   } else {
     console.error('  FAIL  ' + where + label + ' ' + r.status + ' ' + t.url);
     failures++;
