@@ -10,13 +10,37 @@ Owner: Web Operations. Everything the Builder Agent needs to self-serve.
 |---|---|
 | Repo | `ju0o/ju-portal` (public) |
 | Production branch | `main` |
-| Production URL | `https://ju-portal.vercel.app` |
+| Production URL | `https://ju-portal-one.vercel.app` |
 | Vercel project | Hobby plan, team `ju0o___` |
-| Build command | `npm run build` → `node scripts/verify-registry.mjs` |
-| Output | static, `outputDirectory: "."` |
+| Build command | `npm run build` = `verify-registry` (offline gate) then `build-static` |
+| Output | `dist/`, explicit. Only the public URL space is published |
 | Serverless functions | **none, by contract** |
 | Custom domain | none at V0 (Founder decision C) |
 | Monthly cost | **₩0** — no payment method on the Vercel account |
+
+> **The domain is `ju-portal-one.vercel.app`, not `ju-portal.vercel.app`.** Vercel
+> assigned the suffixed name on project creation. Always read the URL from the
+> Vercel project page or `NEXT_PUBLIC_SITE_URL`; never hardcode an assumed slug.
+
+> **`ju-portal.vercel.app` returns 404** — it was never assigned to this project.
+
+## 1b. Why an explicit dist/
+
+With no framework preset, Vercel publishes the **repository root** as static output.
+That produced two real failures, both found and fixed:
+
+- the video was served at `/public/media/...` instead of the Registry path `/media/...`
+- `content/`, `scripts/`, `vercel.json` and the docs were publicly downloadable
+  from production
+
+`scripts/build-static.mjs` now assembles `dist/` containing exactly the public URL
+space (`public/**` flattened to the root, plus the entry document), and strips
+documentation recursively. Verified on production: every internal path now 404s.
+
+**When the Builder switches to a framework preset, `outputDirectory` changes with
+it.** If you adopt Next.js static export, set `outputDirectory` to `out` and drop
+`build-static.mjs`; the media path contract is unaffected because Next.js already
+maps `public/**` to `/`.
 
 ## 2. Deploy
 
@@ -26,6 +50,17 @@ Merge to `main` → automatic **Production** deploy.
 There is no manual deploy step and no build token to manage. That is deliberate:
 the sandbox that runs the infra work has no Vercel or GitHub token, so the pipeline
 was designed to need none.
+
+**Known trap.** A unique per-deployment URL such as
+`ju-portal-<hash>-ju0o.vercel.app` answers anonymous requests with a Vercel
+**login page** (HTTP 200, `x-matched-path: /login`) because Deployment Protection
+is active. Never treat a 200 from that URL as proof your site is live — always
+verify the **production alias** `ju-portal-one.vercel.app`.
+
+**Known trap.** `gh` and `git push` are not usable from the infra sandbox (no token,
+config unreadable). Repo changes are made through the authenticated web UI. The
+web-UI **file upload flattens directories** — upload directory by directory via
+`/upload/main/<dir>`, or the paths will all land at the repo root.
 
 ## 3. Rollback (target < 60 s)
 
