@@ -1,0 +1,13 @@
+{
+  "name": "ju-portal",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "JU Portal - public showcase of JU products, skills, labs and radar. Infra-managed by Web Operations.",
+  "scripts": {
+    "build": "node scripts/verify-registry.mjs && node scripts/build-static.mjs",
+    "verify": "node scripts/verify-registry.mjs",
+    "verify:links": "node scripts/verify-links.mjs",
+    "typecheck": "tsc --noEmit"
+  }
+}
