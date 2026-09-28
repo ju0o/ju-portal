@@ -51,12 +51,23 @@ async function walk(dir) {
   return out;
 }
 
+/** Repo-relative existence check. Used for real files like content/<section>/index.ts. */
+async function existsRepo(rel) {
+  try {
+    const s = await stat(join(ROOT, rel));
+    return s.isFile();
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Registry media paths are PUBLIC URL paths: /media/{slug}/{asset}.{version}.{ext}
  * They resolve on disk under public/. This mapping is the whole reason a declared
- * path that does not exist can be caught at build time.
+ * path that does not exist can be caught at build time. Do NOT use this for
+ * ordinary repo files.
  */
-async function exists(rel) {
+async function existsPublicMedia(rel) {
   try {
     const s = await stat(join(ROOT, 'public', rel.replace(/^\//, '')));
     return s.isFile();
@@ -67,7 +78,7 @@ async function exists(rel) {
 
 // 1. required IA sections exist
 for (const section of ['products', 'skills', 'labs', 'radar']) {
-  if (!(await exists('content/' + section + '/index.ts'))) {
+  if (!(await existsRepo('content/' + section + '/index.ts'))) {
     err('Missing required IA section: content/' + section + '/index.ts');
   }
 }
@@ -94,7 +105,7 @@ for (const file of contentFiles) {
       err(rel + ': media path "' + p + '" has no version segment. Filename must end .{vN} or .{hash8}.');
       continue;
     }
-    if (!(await exists(p))) {
+    if (!(await existsPublicMedia(p))) {
       err(rel + ': declared media path "' + p + '" does not exist in public/. Remove it or add the file.');
     }
   }
