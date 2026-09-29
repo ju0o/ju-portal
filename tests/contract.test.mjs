@@ -145,21 +145,51 @@ test('a missing video degrades to an explicit state, never a broken player', () 
 
 // ---------- env / site url ----------
 
-test('no component hardcodes the production host or a slug', () => {
+test('no UI source hardcodes the production host, slug, or a dev host', () => {
   for (const f of walk(join(ROOT, 'src')).filter((f) => /\.(js|ts)$/.test(f))) {
     const src = readFileSync(f, 'utf8');
     assert.ok(!src.includes('ju-portal-one'), relative(ROOT, f) + ' hardcodes the production slug');
     assert.ok(!src.includes('vercel.app'), relative(ROOT, f) + ' hardcodes a vercel host');
     assert.ok(!src.includes('localhost'), relative(ROOT, f) + ' hardcodes localhost');
   }
+  // The same rule for the render/verify scripts, minus .env loading.
+  for (const f of walk(join(ROOT, 'scripts')).filter((f) => /\.(mjs|js|ts)$/.test(f))) {
+    const src = readFileSync(f, 'utf8');
+    assert.ok(!src.includes('ju-portal-one'), relative(ROOT, f) + ' hardcodes the production slug');
+  }
 });
 
-test('no built page leaks a dev host, preview hash, or the production slug', () => {
+test('no built page leaks a dev host or a preview hash', () => {
+  // The production origin IS expected in <link rel="canonical">, og:url, and
+  // absolute media URLs - that is the point of canonicalUrl()/resolveMediaUrl().
+  // What must never appear anywhere is a dev host or a per-deployment hash.
+  const canonicalOrigin = process.env.NEXT_PUBLIC_SITE_URL;
+
   for (const f of walk(DIST).filter((f) => f.endsWith('.html'))) {
     const html = readFileSync(f, 'utf8');
-    assert.ok(!html.includes('localhost'), relative(DIST, f) + ' leaks localhost');
-    assert.ok(!html.includes('ju-portal-one.vercel.app'), relative(DIST, f) + ' leaks the production origin');
-    assert.ok(!/\.vercel\.app/.test(html), relative(DIST, f) + ' leaks a vercel preview hash');
+    const rel = relative(DIST, f);
+
+    assert.ok(!html.includes('localhost'), rel + ' leaks localhost');
+    assert.ok(!/127\.0\.0\.1/.test(html), rel + ' leaks a loopback host');
+    assert.ok(
+      !/ju-portal-[a-z0-9]{6,}-[a-z0-9-]+\.vercel\.app/.test(html),
+      rel + ' leaks a preview deployment hash',
+    );
+
+    // Any vercel host that does appear must be the canonical origin, never a
+    // preview slug.
+    for (const m of html.matchAll(/https:\/\/[a-z0-9.-]*vercel\.app[^"' <]*/gi)) {
+      assert.ok(
+        !/ju-portal-[a-z0-9]{6,}-[a-z0-9-]+\./.test(m[0]),
+        rel + ' links to a preview deployment: ' + m[0],
+      );
+      if (canonicalOrigin) {
+        assert.ok(
+          m[0].startsWith(canonicalOrigin),
+          rel + ' links to a non-canonical vercel host: ' + m[0],
+        );
+      }
+    }
   }
 });
 
@@ -186,6 +216,138 @@ test('site url resolution comes from NEXT_PUBLIC_SITE_URL and falls back locally
   );
 
   delete process.env.NEXT_PUBLIC_SITE_URL;
+});
+
+// ---------- canonical / og ----------
+
+test('canonicalUrl builds from NEXT_PUBLIC_SITE_URL and falls back to relative', async () => {
+  const url = new URL('src/lib/dom.js', `file://${ROOT}/`).href;
+  const mod = await import(url);
+
+  process.env.NEXT_PUBLIC_SITE_URL = 'https://ju-portal-one.vercel.app';
+  assert.equal(mod.canonicalUrl('/'), 'https://ju-portal-one.vercel.app/');
+  assert.equal(mod.canonicalUrl('/products'), 'https://ju-portal-one.vercel.app/products');
+  assert.equal(
+    mod.canonicalUrl('/products/juqode'),
+    'https://ju-portal-one.vercel.app/products/juqode',
+  );
+  assert.equal(mod.canonicalUrl('/labs/'), 'https://ju-portal-one.vercel.app/labs');
+
+  delete process.env.NEXT_PUBLIC_SITE_URL;
+  assert.equal(mod.canonicalUrl('/products/juqode'), '/products/juqode', 'local dev falls back to relative');
+});
+
+test('every generated page emits canonical and og:url', () => {
+  const pages = walk(DIST).filter((f) => f.endsWith('.html') && !f.endsWith('404.html'));
+  assert.ok(pages.length >= 7, 'expected the full route surface, found ' + pages.length);
+
+  for (const f of pages) {
+    const html = readFileSync(f, 'utf8');
+    const rel = relative(DIST, f);
+
+    const canonical = /<link rel="canonical" href="([^"]+)"/.exec(html);
+    const ogUrl = /<meta property="og:url" content="([^"]+)"/.exec(html);
+    assert.ok(canonical, rel + ' is missing <link rel="canonical">');
+    assert.ok(ogUrl, rel + ' is missing <meta property="og:url">');
+    assert.equal(canonical[1], ogUrl[1], rel + ': canonical and og:url must agree');
+
+    // The canonical path must match the page it was emitted on.
+    const route = rel === 'index.html' ? '/' : '/' + rel.replace(/index\.html$/, '').replace(/\/$/, '');
+    const canonicalPath = new URL(canonical[1], 'https://x.invalid').pathname.replace(/\/$/, '') || '/';
+    const expectPath = route === '/' ? '/' : route;
+    assert.equal(canonicalPath, expectPath, rel + ' canonical path does not match its route');
+  }
+});
+
+test('canonical origin comes from the env, never from a preview host or localhost', () => {
+  const origin = process.env.NEXT_PUBLIC_SITE_URL;
+  for (const f of walk(DIST).filter((f) => f.endsWith('.html'))) {
+    const html = readFileSync(f, 'utf8');
+    const rel = relative(DIST, f);
+    const canonical = /<link rel="canonical" href="([^"]+)"/.exec(html)?.[1] ?? '';
+    if (!canonical) continue;
+
+    assert.ok(!canonical.includes('localhost'), rel + ' canonical leaks localhost');
+    if (origin) {
+      assert.ok(
+        canonical.startsWith(origin),
+        rel + ' canonical must start with NEXT_PUBLIC_SITE_URL (' + origin + '), got ' + canonical,
+      );
+    }
+  }
+});
+
+// ---------- media url joining ----------
+
+test('media URLs never produce a duplicated /media/ segment', async () => {
+  const url = new URL('src/lib/dom.js', `file://${ROOT}/`).href;
+  const mod = await import(url);
+  const path = '/media/juqode/overview.v1.mp4';
+
+  const bases = [
+    'https://ju-portal-one.vercel.app',        // origin only (the contract)
+    'https://ju-portal-one.vercel.app/',       // trailing slash
+    'https://ju-portal-one.vercel.app/media',  // base already ends in /media
+    'https://cdn.example.com/media',           // a different host with the suffix
+  ];
+
+  for (const base of bases) {
+    process.env.PUBLIC_MEDIA_BASE_URL = base;
+    const resolved = mod.resolveMediaUrl(path);
+    assert.ok(!resolved.includes('/media/media/'), 'base ' + base + ' produced ' + resolved);
+    assert.ok(
+      resolved.endsWith(path),
+      'base ' + base + ' must preserve the registry path verbatim, got ' + resolved,
+    );
+  }
+
+  process.env.PUBLIC_MEDIA_BASE_URL = '';
+  assert.equal(mod.resolveMediaUrl(path), path, 'no base returns the registry path unchanged');
+});
+
+test('no rendered page contains a duplicated /media/ path segment', () => {
+  for (const f of walk(DIST)) {
+    const file = relative(DIST, f);
+    if (/\.(mp4|png|jpg|svg|css|js)$/.test(f)) continue; // binary/asset content
+    const text = readFileSync(f, 'utf8');
+    assert.ok(!text.includes('/media/media/'), file + ' contains a duplicated /media/ segment');
+  }
+});
+
+test('there is exactly one media url resolution path in Builder source', () => {
+  // Builder-owned source only. src/registry/ is Infra-owned and is explicitly
+  // out of the Builder's control.
+  const srcFiles = walk(join(ROOT, 'src')).filter(
+    (f) => /\.(js|ts)$/.test(f) && !f.startsWith(join(ROOT, 'src', 'registry')),
+  );
+
+  // The defect Infra flagged was joining with `base + path`. Assert the Builder
+  // joins with URL semantics instead: a literal concatenated with `+ path` is
+  // the exact shape that yields /media/media/.
+  for (const f of srcFiles) {
+    const src = readFileSync(f, 'utf8');
+    assert.ok(
+      !/'\s*\+\s*\(?\s*path/i.test(src),
+      relative(ROOT, f) + ' concatenates a literal base with + path instead of using URL semantics',
+    );
+  }
+
+  // resolveMediaUrl is the single entry point for media joining.
+  const dom = readFileSync(join(ROOT, 'src/lib/dom.js'), 'utf8');
+  assert.ok(dom.includes('new URL('), 'media joining must use URL semantics');
+
+  // No second media-URL implementation may exist in Builder source.
+  const dupes = srcFiles.filter((f) =>
+    /export\s+(async\s+)?function\s+mediaUrl\b/.test(readFileSync(f, 'utf8')),
+  );
+  assert.equal(dupes.length, 0, 'Builder must not define its own mediaUrl(); use resolveMediaUrl()');
+});
+
+test('404.html declares no canonical and is not indexable', () => {
+  const html = readFileSync(join(DIST, '404.html'), 'utf8');
+  assert.ok(!html.includes('rel="canonical"'), '404 must not declare a canonical URL');
+  assert.ok(!html.includes('og:url'), '404 must not declare og:url');
+  assert.ok(html.includes('noindex'), '404 must be robots noindex');
 });
 
 // ---------- routes ----------

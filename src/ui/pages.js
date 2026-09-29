@@ -209,6 +209,19 @@ export function renderSkills({ skills, currentPath }) {
   return layout('Skills', 'Agent에게 능력을 하나씩 붙이는 방법.', currentPath, body);
 }
 
+/**
+ * 404. Non-indexable by design: it declares no canonical and no og:url, and
+ * carries robots noindex so an error page is never presented as canonical.
+ */
+export function renderNotFound({ currentPath }) {
+  const body = `<div class="wrap stack" style="padding-block:5rem;max-width:36rem">
+  <h1 class="title">찾을 수 없는 페이지입니다</h1>
+  <p class="muted" style="margin:0">주소가 바뀌었거나 아직 공개되지 않은 페이지일 수 있습니다.</p>
+  <div><a class="btn" href="/">홈으로 가기</a></div>
+</div>`;
+  return layout('페이지를 찾을 수 없습니다', '', currentPath, body, { indexable: false });
+}
+
 /** Radar: thin link-out surface. Origin comes from RADAR_ORIGIN via the resolver. */
 export function renderRadar({ radar, currentPath }) {
   const cards = radar

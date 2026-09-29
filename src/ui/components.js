@@ -7,7 +7,7 @@
  */
 
 import { getPrimaryAction } from '../registry/action.ts';
-import { mediaUrl, esc } from '../lib/dom.js';
+import { resolveMediaUrl, canonicalUrl, esc } from '../lib/dom.js';
 
 const NAV = [
   { href: '/products/', label: 'Products' },
@@ -16,8 +16,21 @@ const NAV = [
   { href: '/radar/', label: 'Radar' },
 ];
 
-export function layout(title, description, currentPath, body) {
+export function layout(title, description, currentPath, body, { indexable = true } = {}) {
   const isCurrent = (href) => currentPath === href || currentPath === href.slice(0, -1);
+
+  // Canonical comes from NEXT_PUBLIC_SITE_URL via canonicalUrl(); never from the
+  // request host, so a Preview deployment can never become the canonical origin.
+  // A non-indexable page (404) declares no canonical at all.
+  const canonical = indexable ? canonicalUrl(currentPath) : '';
+  const seo = indexable
+    ? `<link rel="canonical" href="${esc(canonical)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="JU">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(description)}">
+<meta property="og:url" content="${esc(canonical)}">`
+    : '<meta name="robots" content="noindex, follow">';
 
   const desktop = NAV.map(
     (n) =>
@@ -36,6 +49,7 @@ export function layout(title, description, currentPath, body) {
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
+${seo}
 <link rel="stylesheet" href="/assets/portal.css">
 </head>
 <body>
@@ -79,13 +93,13 @@ export function mediaFrame(entry, { controls = false, flat = false } = {}) {
 
   if (media?.overviewVideo?.path) {
     return `<div class="media${flat ? ' media-flat' : ''}">
-  <video src="${esc(mediaUrl(media.overviewVideo.path))}"${posterPath ? ` poster="${esc(mediaUrl(posterPath))}"` : ''}${controls ? ' controls' : ''} preload="none" playsinline muted></video>
+  <video src="${esc(resolveMediaUrl(media.overviewVideo.path))}"${posterPath ? ` poster="${esc(resolveMediaUrl(posterPath))}"` : ''}${controls ? ' controls' : ''} preload="none" playsinline muted></video>
 </div>`;
   }
 
   if (posterPath) {
     return `<div class="media${flat ? ' media-flat' : ''}">
-  <img src="${esc(mediaUrl(posterPath))}" alt="${esc(alt)}" loading="lazy">
+  <img src="${esc(resolveMediaUrl(posterPath))}" alt="${esc(alt)}" loading="lazy">
 </div>`;
   }
 

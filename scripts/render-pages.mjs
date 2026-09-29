@@ -50,7 +50,7 @@ await loadEnvFile('.env.local');
 await loadEnvFile('.env');
 
 import { releaseHref, getPrimaryAction } from '../src/registry/action.ts';
-import { renderHome, renderProducts, renderSkills, renderLabs, renderRadar } from '../src/ui/pages.js';
+import { renderHome, renderProducts, renderSkills, renderLabs, renderRadar, renderNotFound } from '../src/ui/pages.js';
 import { renderProductDetail, renderSkillDetail } from '../src/ui/detail.js';
 
 /**
@@ -118,15 +118,8 @@ for (const skill of skills) {
   await page(`/skills/${skill.slug}`, renderSkillDetail(skill, { currentPath: `/skills/${skill.slug}/` }));
 }
 
-// 404
-const notFound = renderSkills({ skills: [], currentPath: '/404/' })
-  .replace('<title>Skills', '<title>페이지를 찾을 수 없습니다 — JU')
-  .replace(/<main id="main">[\s\S]*<\/main>/, `<main id="main"><div class="wrap stack" style="padding-block:5rem;max-width:36rem">
-  <h1 class="title">찾을 수 없는 페이지입니다</h1>
-  <p class="muted" style="margin:0">주소가 바뀌었거나 아직 공개되지 않은 페이지일 수 있습니다.</p>
-  <div><a class="btn" href="/">홈으로 가기</a></div>
-</div></main>`);
-await writeFile(join(OUT, '404.html'), notFound, 'utf8');
+// 404. Non-indexable: no canonical, no og:url, robots noindex.
+await writeFile(join(OUT, '404.html'), renderNotFound({ currentPath: '/404/' }), 'utf8');
 console.log('[render] /404');
 
 // Manifest for the Preview smoke check.
