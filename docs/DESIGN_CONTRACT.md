@@ -1,16 +1,37 @@
-# JU Portal — DESIGN CONTRACT (normative)
+# JU Portal — DESIGN CONTRACT
 
-> **This is the visual acceptance contract.** It exists in the repository so it
-> cannot be reinterpreted. Infra owns it. The Builder implements it.
+> # ⚠ PROVISIONAL — DO NOT BUILD AGAINST THIS YET
 >
-> Authority split, which is mandatory:
-> - **VISUAL SYSTEM** = this document + the approved prototype.
-> - **PRODUCT TRUTH** = the current Registry / SSOT. Stale prototype data is
->   explicitly NOT authoritative for which products exist.
+> **Status: `DESIGN_REFERENCE_MISSING`.** The approved JU Portal prototype is not
+> available in the Infra environment, and a visual audit was requested that must not
+> invent a replacement visual system.
 >
-> Do not merge until Infra signs off against this document.
+> **What this document actually is.** It was reconstructed from a *textual
+> description* of the prototype (a Founder chat message), not from the prototype
+> itself. Everything below that is a specific visual rule — card anatomy and its
+> ordering, section-by-section visual weighting, the media-first ordering, the
+> copy tables, the exact treatment of empty states — is **my inference, not approved
+> design.** It is recorded here so the thinking is not lost, and so it can be
+> corrected once the real reference arrives.
+>
+> **What is genuinely grounded and safe to act on** (from the Founder's written
+> visual direction, which is verbatim and does not depend on the prototype):
+> the lime accent `#d8ff4f`, the mint `#8df6dc`, the hero hierarchy
+> `headline → interactive entry → products`, the `지금 뭘 하고 싶나요?` entry with
+> suggestion chips, the copy register, and the section intents for Skills / Labs /
+> Radar. Those are marked **[GROUNDED]** below.
+>
+> **Action required:** the Founder must supply the approved prototype (image, URL,
+> or file). Infra will then re-issue this document as v1, marking each rule as
+> either *matches prototype* or *adjusted from prototype*. Until then the Builder
+> should treat only the **[GROUNDED]** items as a work order.
+>
+> Original commit: `bbad3dd`. Superseding commit: see git log for this file.
 
 ---
+
+<details>
+<summary><b>PROVISIONAL DRAFT — reconstructed from prose, not from the prototype</b></summary>
 
 ## 0. Functional baseline that must survive the redesign
 
@@ -281,3 +302,7 @@ Navigation must not consume it. A closed menu must actually be closed —
 - [ ] Public copy is Korean, beginner register, no plumbing vocabulary.
 - [ ] At 390px the first viewport shows headline + interactive entry.
 - [ ] Functional baseline §0 still passes 14/14.
+
+---
+
+</details>
