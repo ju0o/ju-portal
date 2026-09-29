@@ -83,6 +83,9 @@ const targets = [];
 const srcRE = /source:\s*\{[^}]*?url:\s*['"`]([^'"`]+)['"`]/g;
 const extRE = /externalUrl:\s*['"`]([^'"`]+)['"`]/g;
 const pkgRE = /provider:\s*['"`](npm|pypi)['"`][\s\S]{0,240}?package:\s*['"`]([^'"`]+)['"`]/g;
+// A web/direct release IS the primary CTA for entries like JuQode, so its url must
+// be probed. Missing this would let the primary action ship unverified.
+const webRE = /provider:\s*['"`](web|direct)['"`][\s\S]{0,200}?url:\s*['"`]([^'"`]+)['"`]/g;
 const repoRE = /repo:\s*['"`]([^'"`]+)['"`]/g;
 const tagRE = /tag:\s*['"`]([^'"`]+)['"`]/g;
 const assetRE = /asset:\s*['"`]([^'"`]+)['"`]/g;
@@ -98,6 +101,7 @@ for (const f of files) {
     targets.push({ rel, kind: 'source', url: v.startsWith('http') ? v : 'https://github.com/' + v });
   }
   while ((m = extRE.exec(src)) !== null) targets.push({ rel, kind: 'media', url: m[1] });
+  while ((m = webRE.exec(src)) !== null) targets.push({ rel, kind: 'web', url: m[2] });
   while ((m = pkgRE.exec(src)) !== null) {
     // The packument lives at the bare registry path, NOT /json. This is the
     // authoritative existence check.
@@ -144,13 +148,14 @@ for (const t of uniq) {
   const where = t.rel + ' ';
   const botRefused = BOT_REFUSAL.has(r.status);
   // A refused page is fine - the authoritative existence check already ran. A
-  // refused download is not: that URL is the user's actual promise.
+  // refused download is not: that URL is the user's actual promise. A refused web
+  // CTA is also a real failure - it IS the primary action.
   if (r.network) {
     console.log('  SKIP  ' + where + label + ' ' + t.url + ' (' + r.error + ')');
     skips++;
   } else if (r.ok) {
     console.log('  ok    ' + where + label + ' ' + r.status + ' ' + t.url);
-  } else if (botRefused && t.kind !== 'download' && t.kind !== 'media') {
+  } else if (botRefused && t.kind !== 'download' && t.kind !== 'media' && t.kind !== 'web') {
     console.log(
       '  SKIP  ' + where + label + ' ' + r.status + ' ' + t.url + ' (bot refusal; existence verified separately)',
     );
