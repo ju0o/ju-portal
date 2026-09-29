@@ -99,6 +99,18 @@ export interface Release {
   version?: string;
   platforms?: string[];
   verb: ActionVerb;
+
+  /**
+   * Marks this release as THE primary action for the entry. Exactly one release
+   * per product may set it; the resolver prefers it over any heuristic ordering.
+   *
+   * Founder decision 2026-09-29: JuQode's primary is the zero-install web Try
+   * experience, with the installer kept as a secondary Download. The reason is the
+   * audience - vibe-coding beginners, for whom "try it in the browser right now"
+   * beats "download an exe". An explicit flag is used instead of a heuristic so the
+   * choice is visible in the Registry and cannot be silently reordered later.
+   */
+  primary?: boolean;
 }
 
 export interface SourceRef {
