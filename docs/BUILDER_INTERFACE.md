@@ -165,7 +165,7 @@ Read only these. No hardcoded origins anywhere in the app.
 NEXT_PUBLIC_SITE_URL=https://ju-portal-one.vercel.app
 NEXT_PUBLIC_GITHUB_ORG=ju0o
 NEXT_PUBLIC_ANALYTICS_ENABLED=true
-PUBLIC_MEDIA_BASE_URL=https://ju-portal-one.vercel.app/media
+PUBLIC_MEDIA_BASE_URL=https://ju-portal-one.vercel.app   # MEDIA ORIGIN, no /media
 RELEASE_PROVIDER_DEFAULT=github_release
 RELEASE_RESOLVER_MODE=build
 RELEASE_CACHE_TTL_SECONDS=900
@@ -173,6 +173,12 @@ RADAR_ORIGIN=https://juradar-907c6.web.app
 NEXT_PUBLIC_CONTACT_URL=          # optional
 RELEASE_GITHUB_TOKEN=             # optional, public repos need none
 ```
+
+`PUBLIC_MEDIA_BASE_URL` is the **bare origin**, not the media directory. The
+Registry path already begins with `/media/`, so the two are joined once. Setting
+this to `.../media` produces `/media/media/...` and a 404 video — that exact
+mistake shipped once. Build media URLs with `mediaUrl()` from
+`src/registry/action.ts`; never concatenate by hand.
 
 The production origin is `https://ju-portal-one.vercel.app` — read it from
 `NEXT_PUBLIC_SITE_URL` and never hardcode an assumed slug.
