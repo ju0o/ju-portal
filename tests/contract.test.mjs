@@ -256,41 +256,41 @@ test('siteUrl prefers VERCEL_PROJECT_PRODUCTION_URL over a stale manual value', 
   }
 });
 
-test('resolveMediaUrl returns registry media paths unchanged', async () => {
-  const url = new URL('src/lib/dom.js', `file://${ROOT}/`).href;
-  const mod = await import(url);
+test('local media renders as the Registry pathname unchanged', async () => {
+  // mediaUrl() is Infra-owned (src/registry/action.ts). At V0 a local reference
+  // renders unchanged, so it is same-origin by construction.
+  const action = await import(new URL('src/registry/action.ts', `file://${ROOT}/`).href);
   const path = '/media/juqode/overview.v1.mp4';
 
   const snapshot = { ...process.env };
   try {
-    // D. Local registry path is returned verbatim, whatever the host envs say.
-    for (const base of [undefined, 'https://ju-portal-one.vercel.app', 'https://cdn.example.com/media']) {
-      if (base === undefined) delete process.env.PUBLIC_MEDIA_BASE_URL;
-      else process.env.PUBLIC_MEDIA_BASE_URL = base;
-      assert.equal(
-        mod.resolveMediaUrl(path),
-        path,
-        'registry path must be returned unchanged (base: ' + base + ')',
-      );
-    }
-
-    // No host env may be involved at all.
+    // D. Unset base is the V0 default: the pathname comes back verbatim.
     delete process.env.PUBLIC_MEDIA_BASE_URL;
-    assert.equal(mod.resolveMediaUrl(path), path);
+    assert.equal(action.mediaUrl(path), path, 'with no external base the pathname is unchanged');
+    assert.equal(action.mediaUrl(path, undefined), path, 'explicitly undefined base is unchanged');
 
-    // G. A duplicated /media/ segment is structurally impossible.
-    assert.ok(!mod.resolveMediaUrl(path).includes('/media/media/'));
+    // G. A duplicated /media/ segment can never be produced.
+    assert.ok(!action.mediaUrl(path).includes('/media/media/'));
 
-    // An absolute external URL passes through unchanged (future CDN ready).
+    // An absolute external URL passes through untouched (future CDN ready).
     assert.equal(
-      mod.resolveMediaUrl('https://cdn.example.com/media/juqode/overview.v1.mp4'),
+      action.mediaUrl('https://cdn.example.com/media/juqode/overview.v1.mp4'),
       'https://cdn.example.com/media/juqode/overview.v1.mp4',
       'an absolute external media URL must be preserved',
     );
 
-    // Falsy input.
-    assert.equal(mod.resolveMediaUrl(''), '');
-    assert.equal(mod.resolveMediaUrl(undefined), '');
+    // If an external base IS configured (future CDN), a redundant trailing
+    // /media must not double-join into /media/media/.
+    for (const base of [
+      'https://cdn.example.com',
+      'https://cdn.example.com/',
+      'https://cdn.example.com/media',
+      'https://cdn.example.com/media/',
+    ]) {
+      const resolved = action.mediaUrl(path, base);
+      assert.ok(!resolved.includes('/media/media/'), 'base ' + base + ' produced ' + resolved);
+      assert.ok(resolved.endsWith(path), 'base ' + base + ' must preserve the path: ' + resolved);
+    }
   } finally {
     for (const k of Object.keys(process.env)) {
       if (!(k in snapshot)) delete process.env[k];
@@ -398,33 +398,43 @@ test('no rendered page contains a duplicated /media/ path segment', () => {
   }
 });
 
-test('there is exactly one media url resolution path in Builder source', () => {
-  // Builder-owned source only. src/registry/ is Infra-owned and is explicitly
-  // out of the Builder's control.
-  const srcFiles = walk(join(ROOT, 'src')).filter(
+test('media and origin resolution have exactly one implementation, and it is Infra-owned', () => {
+  // src/registry/action.ts is Infra-owned and now also owns mediaUrl(),
+  // canonicalOrigin() and absoluteUrl(). The Builder must not reimplement any
+  // of them, so assert the Builder source defines no origin/media join of its own.
+  const builderSrc = walk(join(ROOT, 'src')).filter(
     (f) => /\.(js|ts)$/.test(f) && !f.startsWith(join(ROOT, 'src', 'registry')),
   );
 
-  // The defect Infra flagged was joining with `base + path`. Assert the Builder
-  // joins with URL semantics instead: a literal concatenated with `+ path` is
-  // the exact shape that yields /media/media/.
-  for (const f of srcFiles) {
+  for (const f of builderSrc) {
     const src = readFileSync(f, 'utf8');
     assert.ok(
       !/'\s*\+\s*\(?\s*path/i.test(src),
-      relative(ROOT, f) + ' concatenates a literal base with + path instead of using URL semantics',
+      relative(ROOT, f) + ' concatenates a literal base with + path instead of delegating to the resolver',
+    );
+    for (const name of ['mediaUrl', 'canonicalOrigin', 'absoluteUrl']) {
+      assert.ok(
+        !new RegExp('export\\s+(async\\s+)?function\\s+' + name + '\\b').test(src),
+        relative(ROOT, f) + ' defines its own ' + name + '(); the Infra resolver owns it',
+      );
+    }
+  }
+
+  // The single implementations live in the Infra module.
+  const action = readFileSync(join(ROOT, 'src/registry/action.ts'), 'utf8');
+  for (const name of ['mediaUrl', 'canonicalOrigin', 'absoluteUrl']) {
+    assert.ok(
+      new RegExp('export\\s+function\\s+' + name + '\\b').test(action),
+      'src/registry/action.ts must own ' + name + '()',
     );
   }
 
-  // resolveMediaUrl is the single entry point for media joining.
+  // The Builder delegates rather than reimplementing.
   const dom = readFileSync(join(ROOT, 'src/lib/dom.js'), 'utf8');
-  assert.ok(dom.includes('new URL('), 'media joining must use URL semantics');
-
-  // No second media-URL implementation may exist in Builder source.
-  const dupes = srcFiles.filter((f) =>
-    /export\s+(async\s+)?function\s+mediaUrl\b/.test(readFileSync(f, 'utf8')),
+  assert.ok(
+    dom.includes("from '../registry/action.ts'"),
+    'src/lib/dom.js must re-export the Infra resolver functions',
   );
-  assert.equal(dupes.length, 0, 'Builder must not define its own mediaUrl(); use resolveMediaUrl()');
 });
 
 test('404.html declares no canonical and is not indexable', () => {
