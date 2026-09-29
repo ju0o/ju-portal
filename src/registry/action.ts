@@ -263,18 +263,57 @@ function resolveEnv(name: string): string | undefined {
 }
 
 /**
- * Absolute media URL for a Registry media reference.
+ * Media URL for a Registry media reference.
  *
- * A local reference is already a complete versioned path, so this only joins it
- * against PUBLIC_MEDIA_BASE_URL for canonical/OG use. It deliberately does NOT
- * build a path from a slug - that is forbidden by the media contract.
+ * V0 rule: a LOCAL media reference is rendered as its Registry pathname UNCHANGED.
+ * It is same-origin by construction, so no origin is prepended and no origin can
+ * be wrong. A relative src also survives a future domain change.
+ *
+ * PUBLIC_MEDIA_BASE_URL is NOT used for local media. It is reserved for a future
+ * external CDN / media provider, which is the only case that needs an origin.
+ * When it is unset - the V0 default - this returns the path unchanged.
+ *
+ * An absolute http(s) reference is already complete and is returned untouched.
  *
  * NB: do not write a literal media path in a comment in this file. The registry
  * verifier scans raw source text for such literals and will (correctly) reject an
  * unversioned one, breaking the build for a reason that is invisible in review.
  */
 export function mediaUrl(path: string, base = process.env.PUBLIC_MEDIA_BASE_URL): string {
+  if (/^https?:\/\//.test(path)) return path;     // external / already absolute
+  if (!base) return path;                        // V0 default: unchanged pathname
+  let origin = base.replace(/\/+$/, '');
+  // defensive: tolerate a redundant trailing /media on a future external base
+  if (/\/media$/i.test(origin) && /^\/media\//i.test(path)) {
+    origin = origin.replace(/\/media$/i, '');
+  }
+  return origin + (path.startsWith('/') ? path : '/' + path);
+}
+
+/**
+ * The canonical production origin, for canonical and og:url.
+ *
+ * Resolution order:
+ *   1. VERCEL_PROJECT_PRODUCTION_URL - injected by Vercel at build time on every
+ *      deployment, preview included, and always the PRODUCTION domain. It is
+ *      host-only (no scheme), so https:// is prefixed.
+ *   2. NEXT_PUBLIC_SITE_URL - local / manual fallback only.
+ *   3. '' - nothing is emitted rather than a wrong origin.
+ *
+ * Vercel's value deliberately wins: the production domain cannot drift out of
+ * sync with the project, which is exactly the failure that kept shipping a dead
+ * host into canonical and og:url across three review rounds.
+ */
+export function canonicalOrigin(): string {
+  const v = (process.env.VERCEL_PROJECT_PRODUCTION_URL ?? '').trim();
+  if (v) return 'https://' + v.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  const f = (process.env.NEXT_PUBLIC_SITE_URL ?? '').trim();
+  return f ? f.replace(/\/+$/, '') : '';
+}
+
+/** Absolute URL for a page, built from the canonical origin. Empty origin -> relative. */
+export function absoluteUrl(path: string, origin = canonicalOrigin()): string {
   if (/^https?:\/\//.test(path)) return path;
-  if (!base) return path;
-  return base.replace(/\/+$/, '') + (path.startsWith('/') ? path : '/' + path);
+  if (!origin) return path;
+  return origin + (path.startsWith('/') ? path : '/' + path);
 }

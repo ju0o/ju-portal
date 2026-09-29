@@ -135,9 +135,34 @@ After a rollback, add a line to `infra/INCIDENTS.md`.
 - Referencing a path that does not exist **fails the build**. Do not create
   placeholder files to satisfy the schema.
 
+### Local media is a relative pathname
+
+Local Portal media is rendered as the **Registry pathname, unchanged**:
+
+```
+registry path  = /media/juqode/overview.v1.mp4
+rendered src   = /media/juqode/overview.v1.mp4
+```
+
+No origin is prepended. The asset is same-origin by construction, so there is
+nothing to configure and nothing to get wrong. A relative `src` also keeps working
+if the domain ever changes.
+
+`PUBLIC_MEDIA_BASE_URL` is **not required at V0**. It is reserved for a future
+external CDN or third-party media provider; when a path needs an external origin,
+that is the variable that supplies it. Leave it unset until that day.
+
+**This replaces an earlier contract that defined `PUBLIC_MEDIA_BASE_URL` as the
+media origin.** That definition shipped a double-join (`/media/media/...`) and a
+dead host, and cost three review rounds. The relative-pathname rule removes the
+entire class of bug rather than documenting it.
+
+`mediaUrl()` in `src/registry/action.ts` is the single implementation. Do not
+hand-roll a second one.
+
 ### Local vs external
 
-`LocalMediaRef` uses a versioned path and resolves under `public/`.
+`LocalMediaRef` uses a versioned pathname and resolves under `public/`.
 `ExternalMediaRef` uses a pinned versioned URL (a GitHub Release asset). External
 immutability comes from the pinned tag.
 
@@ -218,10 +243,22 @@ so `github_release` is invalid for it and npm is the real path.
 Authoritative copy: `.env.example`. Also set in Vercel (Production + Preview).
 
 ```bash
+# ── Canonical origin (NO manual value required) ─────────
+# Vercel injects this at build time on every deployment, preview included.
+# It is the source of truth for canonical / og:url. Do not set it by hand.
+VERCEL_PROJECT_PRODUCTION_URL          (provided by Vercel, e.g. ju-portal-one.vercel.app)
+
+# ── Local / manual fallback ONLY ────────────────────────
+# Used when VERCEL_PROJECT_PRODUCTION_URL is absent (local dev, non-Vercel CI).
+# On Vercel this is ignored. Keeping it wrong cannot break production.
 NEXT_PUBLIC_SITE_URL=https://ju-portal-one.vercel.app
-NEXT_PUBLIC_GITHUB_ORG=ju0o
-NEXT_PUBLIC_ANALYTICS_ENABLED=true
-PUBLIC_MEDIA_BASE_URL=https://ju-portal-one.vercel.app/media
+
+# ── Media ───────────────────────────────────────────────
+# NOT REQUIRED at V0. Local Portal media is rendered as the Registry pathname,
+# unchanged, so it is same-origin by construction and needs no origin at all.
+# Reserved for a future external CDN / media provider. Leave unset.
+PUBLIC_MEDIA_BASE_URL=
+
 RELEASE_PROVIDER_DEFAULT=github_release
 RELEASE_RESOLVER_MODE=build
 RELEASE_CACHE_TTL_SECONDS=900
@@ -231,6 +268,10 @@ RELEASE_GITHUB_TOKEN=             # optional; public repos need none
 ```
 
 Hard rules:
+- **Canonical origin resolution order: `VERCEL_PROJECT_PRODUCTION_URL` first, then
+  `NEXT_PUBLIC_SITE_URL`, then empty.** Vercel's value wins, so the production
+  domain cannot drift out of sync with the project. It is host-only (no scheme),
+  so prefix `https://`.
 - `NEXT_PUBLIC_*` is **inlined into the client bundle at build time.** Nothing secret
   may ever carry that prefix. There are no server secrets at V0.
 - No hardcoded origins anywhere in the app.
@@ -238,6 +279,10 @@ Hard rules:
 - **Changing an env var requires a rebuild.** It does not hot-patch a live build, and
   a rollback does **not** revert env vars. Record env and deploy changes together.
 - No `.env` is ever committed.
+- **Vercel marks values as sensitive, so the edit form always shows them empty.**
+  An empty field is NOT evidence that a value is unset, and "Save" is NOT evidence
+  of persistence. The only reliable verification is a redeploy followed by
+  inspection of the rendered artifact.
 
 ---
 

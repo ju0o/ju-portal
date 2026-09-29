@@ -162,10 +162,20 @@ Each skill may carry: `title`, `summary`, `compatibleAgents`, `version`,
 Read only these. No hardcoded origins anywhere in the app.
 
 ```bash
+# Canonical origin comes from Vercel itself - nothing to set by hand.
+# Vercel injects this at build time on every deployment, preview included.
+# VERCEL_PROJECT_PRODUCTION_URL=ju-portal-one.vercel.app
+
+# Local / manual fallback ONLY (ignored on Vercel)
 NEXT_PUBLIC_SITE_URL=https://ju-portal-one.vercel.app
+
 NEXT_PUBLIC_GITHUB_ORG=ju0o
 NEXT_PUBLIC_ANALYTICS_ENABLED=true
-PUBLIC_MEDIA_BASE_URL=https://ju-portal-one.vercel.app/media
+
+# NOT required at V0 - local media is a relative Registry pathname.
+# Reserved for a future external CDN / media provider.
+PUBLIC_MEDIA_BASE_URL=
+
 RELEASE_PROVIDER_DEFAULT=github_release
 RELEASE_RESOLVER_MODE=build
 RELEASE_CACHE_TTL_SECONDS=900
@@ -174,12 +184,22 @@ NEXT_PUBLIC_CONTACT_URL=          # optional
 RELEASE_GITHUB_TOKEN=             # optional, public repos need none
 ```
 
-The production origin is `https://ju-portal-one.vercel.app` — read it from
-`NEXT_PUBLIC_SITE_URL` and never hardcode an assumed slug.
+**Canonical / og:url origin resolution: `VERCEL_PROJECT_PRODUCTION_URL` first, then
+`NEXT_PUBLIC_SITE_URL`, then nothing emitted.** Vercel's value wins, so the
+production domain can never drift out of sync with the project. Use
+`canonicalOrigin()` and `absoluteUrl()` from `src/registry/action.ts`.
+
+**Media is rendered as the Registry pathname, unchanged** (e.g. a `src` of
+`/media/juqode/overview.v1.mp4`) — same-origin by construction, nothing to
+configure. `PUBLIC_MEDIA_BASE_URL` is not used for local media and should be left
+unset until an external provider actually exists. Do not concatenate media paths by
+hand; call `mediaUrl()`.
 
 - `NEXT_PUBLIC_*` is **inlined into the client bundle at build time.** Nothing
   secret may ever carry that prefix. There are no server secrets at V0.
-- `NEXT_PUBLIC_ANALYTICS_ENABLED=false` must actually remove the beacon.
+- **canonical / og:url** — emit them on every indexable page, using
+  `absoluteUrl(path)` from `src/registry/action.ts` so the origin comes from
+  `VERCEL_PROJECT_PRODUCTION_URL` and can never be a dead host
 - Changing an env var requires a **rebuild**; it does not hot-patch a live build.
 
 ## 8. Analytics
