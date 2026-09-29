@@ -19,7 +19,7 @@ chat message, it is not part of the contract.
 | **Radar** | `content/radar/index.ts` | Thin link-out surface over the existing JU Radar |
 | **Environment contract** | `.env.example` | The full list. Also set in Vercel |
 | **Site URL** | `.env.example` → `NEXT_PUBLIC_SITE_URL` | **`https://ju-portal-one.vercel.app`** — not `ju-portal.vercel.app`, which 404s |
-| **Media base URL** | `.env.example` → `PUBLIC_MEDIA_BASE_URL` | `https://ju-portal-one.vercel.app/media` (no trailing slash) |
+| **Media base URL** | `.env.example` → `PUBLIC_MEDIA_BASE_URL` | **MEDIA ORIGIN** `https://ju-portal-one.vercel.app` — *not* the media directory. The Registry already owns the `/media/` prefix, so a `/media` suffix here double-joins to `/media/media/...` and 404s the video |
 | **Radar origin** | `.env.example` → `RADAR_ORIGIN` | `https://juradar-907c6.web.app`. The **admin route is permanently out of scope** |
 | **Media naming** | `public/media/README.md` | `/media/{slug}/{asset}.{version}.{ext}`. Version is mandatory |
 | **Build config** | `vercel.json` + `scripts/build-static.mjs` | Explicit `dist/` output; framework handoff in §1 of the contract |
@@ -48,12 +48,21 @@ chat message, it is not part of the contract.
    template anywhere in the app.
 3. **Never render a provider name.** The user sees Download / Install / Open / Try.
 
-## The one rule that breaks the promise
+## The one rule that broke the video once
 
-**No broken CTA.** An entry claims `status: 'available'` only if
-`getPrimaryAction()` returns `resolved: true`. Otherwise it is `coming_soon` / Labs
-with a disabled "Coming soon" control. `npm run verify:links` probes the real
-download URLs in CI and blocks `main`.
+**`PUBLIC_MEDIA_BASE_URL` is an ORIGIN, not a directory.** Registry paths already
+start with `/media/`. Joining an origin with a Registry path produces the public
+URL exactly once; joining an origin *that ends in `/media`* produces
+`/media/media/...` and a 404. This shipped once on 2026-09-29 and 404'd the
+JuQode overview video. Use `mediaUrl()` from `src/registry/action.ts` — never
+concatenate by hand.
+
+## Vercel env values cannot be read back
+
+Vercel marks these variables as **sensitive**, so the edit form always shows them
+empty and never confirms a save. An empty field is not evidence of an unset value,
+and "Save" is not evidence of persistence. **The only verification is a redeploy
+followed by inspection of the rendered artifact.**
 
 ---
 
