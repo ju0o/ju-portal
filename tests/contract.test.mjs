@@ -299,10 +299,11 @@ test('resolveMediaUrl returns registry media paths unchanged', async () => {
   }
 });
 
-test('rendered HTML references media relatively, not via an absolute dead host', () => {
+test('preview video stays deployment-relative while canonical metadata stays production-canonical', () => {
   const html = readFileSync(join(DIST, 'products/juqode/index.html'), 'utf8');
 
-  // E. The src must be the registry path itself.
+  // The player must load from whichever deployment serves the page, even when
+  // an old PUBLIC_MEDIA_BASE_URL still points at an invalid production alias.
   assert.ok(
     html.includes('src="/media/juqode/overview.v1.mp4"'),
     'the video src must be the relative registry path',
@@ -313,6 +314,18 @@ test('rendered HTML references media relatively, not via an absolute dead host',
   );
   // G. No duplicated segment.
   assert.ok(!html.includes('/media/media/'), 'rendered output must not contain /media/media/');
+
+  // Runtime media and SEO metadata have different URL semantics. Keep the
+  // canonical page origin on the configured production domain; do not make it
+  // relative as part of the video fix.
+  assert.ok(
+    html.includes('<link rel="canonical" href="https://ju-portal-one.vercel.app/products/juqode"'),
+    'the page canonical must remain on the production domain',
+  );
+  assert.ok(
+    html.includes('<meta property="og:url" content="https://ju-portal-one.vercel.app/products/juqode"'),
+    'og:url must remain aligned with the canonical page URL',
+  );
 });
 
 // ---------- canonical / og ----------
