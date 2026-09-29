@@ -118,25 +118,51 @@ checks this in CI and is blocking on `main`.
 Never set `updatedAt` to a date later than the real release `published_at`. Entries
 stale by more than 30 days are rejected.
 
-## 6b. Environment values — MEDIA ORIGIN, not media directory
+## 6b. Canonical origin and media paths
 
-`PUBLIC_MEDIA_BASE_URL` is the **bare origin**:
+**The canonical origin is Vercel's, not a hand-set variable.**
+`VERCEL_PROJECT_PRODUCTION_URL` is a Vercel system variable, injected at build
+time on every deployment including previews, and it always resolves to the
+PRODUCTION domain. It is host-only, so prefix `https://`.
 
 ```
-PUBLIC_MEDIA_BASE_URL = https://ju-portal-one.vercel.app          (correct)
-PUBLIC_MEDIA_BASE_URL = https://ju-portal-one.vercel.app/media    (WRONG)
+canonicalOrigin()  =  VERCEL_PROJECT_PRODUCTION_URL   (Vercel, authoritative)
+                       ?? NEXT_PUBLIC_SITE_URL        (local fallback only)
+                       ?? ''                          (emit nothing)
 ```
 
-The Registry path already starts with `/media/`, so the two are joined once. With
-the `/media` suffix the join produces `/media/media/...`, which 404s. **This shipped
-once and broke the JuQode video.** Build media URLs with `mediaUrl()` from
-`src/registry/action.ts`; never concatenate by hand.
+`NEXT_PUBLIC_SITE_URL` is a **local / manual fallback** used when the Vercel
+variable is absent (local dev, non-Vercel CI). On Vercel it is ignored, so a stale
+value there cannot break production. `PUBLIC_MEDIA_BASE_URL` is **not required at
+V0** and is reserved for a future external CDN / media provider.
 
-**Vercel marks these values sensitive, so the edit form always shows them empty and
+**Local media is a relative Registry pathname, unchanged.** There is no origin to
+join, so there is no origin to get wrong:
+
+```
+registry path = /media/juqode/overview.v1.mp4
+rendered src  = /media/juqode/overview.v1.mp4
+```
+
+An earlier version of this contract defined `PUBLIC_MEDIA_BASE_URL` as the media
+origin. That double-joined into `/media/media/...`, and a separately drifted
+hand-set origin shipped a dead host into canonical and og:url — three review rounds
+of breakage, all of it Infra-owned. Both classes are now removed by construction
+rather than documented.
+
+**Verifying a deploy — the rendered artifact is the ground truth:**
+
+```
+curl -s <deployment-domain>/products/juqode | grep -o 'src="[^"]*overview[^"]*"'
+curl -sI <deployment-domain>/media/juqode/overview.v1.mp4
+curl -s <deployment-domain>/products/juqode | grep -o '<link rel="canonical"[^>]*>'
+```
+
+**Vercel marks sensitive env values so the edit form always shows them empty and
 never confirms a save.** An empty field is not evidence of an unset value, and
-clicking Save is not evidence of persistence. The only reliable check is a
-redeploy followed by inspection of the rendered artifact — the rendered `src` is
-the ground truth, not the dashboard.
+clicking Save is not evidence of persistence. This is the second reason the
+canonical origin now comes from a Vercel system variable: a value that cannot drift
+and does not need to be read back cannot silently be wrong.
 
 ## 7. Free-tier headroom (read live 2026-09-29)
 
