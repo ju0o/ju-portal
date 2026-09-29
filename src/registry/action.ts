@@ -148,7 +148,8 @@ function productAction(entry: ProductEntry): PrimaryAction {
     return UNRESOLVED('No release is published yet.', 'Download');
   }
 
-  // Prefer a pinned (immutable) release as the primary CTA.
+  // An explicit `primary: true` always wins - that is a Founder decision recorded
+  // in the Registry, not a heuristic. Otherwise prefer the most stable target.
   const ordered = [...releases].sort((a, b) => rank(b) - rank(a));
   for (const release of ordered) {
     const href = releaseHref(release);
@@ -166,8 +167,16 @@ function productAction(entry: ProductEntry): PrimaryAction {
   return UNRESOLVED('Every declared release target failed to resolve.', 'Download');
 }
 
-/** Pinned tags first, then explicit URLs, then unpinned "latest". */
+/**
+ * Ordering weight for choosing a primary CTA.
+ *
+ * `primary: true` dominates everything - it encodes a deliberate Founder decision
+ * (e.g. JuQode's web Try experience outranks its installer) and must not be
+ * overridable by a heuristic. Below that: a pinned tag is preferred, because a
+ * pinned download URL is immutable, while "latest" is not.
+ */
 function rank(release: Release): number {
+  if (release.primary) return 100;
   let score = 0;
   if (release.tag) score += 2;
   if (release.url) score += 1;
