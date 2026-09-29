@@ -265,9 +265,14 @@ function resolveEnv(name: string): string | undefined {
 /**
  * Absolute media URL for a Registry media reference.
  *
- * A local reference is already a complete versioned path, so this only joins it
- * against PUBLIC_MEDIA_BASE_URL for canonical/OG use. It deliberately does NOT
- * build a path from a slug - that is forbidden by the media contract.
+ * The Registry path already carries the /media/ prefix, so this only joins it onto
+ * PUBLIC_MEDIA_BASE_URL - which is the bare ORIGIN, not the media directory.
+ * Joining an origin with a Registry path yields the public URL exactly once.
+ *
+ * The normalisation below is defensive: an earlier version of the contract defined
+ * PUBLIC_MEDIA_BASE_URL with a /media suffix, which double-joined into
+ * /media/media/... and 404'd the video. Tolerating either convention means this
+ * class of bug cannot come back through a stray env value.
  *
  * NB: do not write a literal media path in a comment in this file. The registry
  * verifier scans raw source text for such literals and will (correctly) reject an
@@ -276,5 +281,9 @@ function resolveEnv(name: string): string | undefined {
 export function mediaUrl(path: string, base = process.env.PUBLIC_MEDIA_BASE_URL): string {
   if (/^https?:\/\//.test(path)) return path;
   if (!base) return path;
-  return base.replace(/\/+$/, '') + (path.startsWith('/') ? path : '/' + path);
+  let origin = base.replace(/\/+$/, '');
+  if (/\/media$/i.test(origin) && /^\/media\//i.test(path)) {
+    origin = origin.replace(/\/media$/i, '');
+  }
+  return origin + (path.startsWith('/') ? path : '/' + path);
 }
