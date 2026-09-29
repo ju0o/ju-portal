@@ -20,6 +20,19 @@ export default {
     pending: ['poster'],
   },
   releases: [
+    // PRIMARY. Founder decision 2026-09-29: the zero-install web Try experience is
+    // the primary action, not the installer. The audience is vibe-coding beginners,
+    // for whom "open it in the browser right now" beats "download an exe and run it".
+    // Verified live 2026-09-29: 200, "JuQode — 클릭 체험판".
+    {
+      provider: 'web',
+      url: 'https://ju0o.github.io/JuQode/',
+      platforms: ['web'],
+      verb: 'Try',
+      primary: true,
+    },
+    // SECONDARY. The executable remains available and verified, but is not the
+    // primary CTA. URL is pinned to a tag so it stays immutable.
     {
       provider: 'github_release',
       repo: 'ju0o/JuQode',
