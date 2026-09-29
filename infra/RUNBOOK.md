@@ -118,6 +118,26 @@ checks this in CI and is blocking on `main`.
 Never set `updatedAt` to a date later than the real release `published_at`. Entries
 stale by more than 30 days are rejected.
 
+## 6b. Environment values — MEDIA ORIGIN, not media directory
+
+`PUBLIC_MEDIA_BASE_URL` is the **bare origin**:
+
+```
+PUBLIC_MEDIA_BASE_URL = https://ju-portal-one.vercel.app          (correct)
+PUBLIC_MEDIA_BASE_URL = https://ju-portal-one.vercel.app/media    (WRONG)
+```
+
+The Registry path already starts with `/media/`, so the two are joined once. With
+the `/media` suffix the join produces `/media/media/...`, which 404s. **This shipped
+once and broke the JuQode video.** Build media URLs with `mediaUrl()` from
+`src/registry/action.ts`; never concatenate by hand.
+
+**Vercel marks these values sensitive, so the edit form always shows them empty and
+never confirms a save.** An empty field is not evidence of an unset value, and
+clicking Save is not evidence of persistence. The only reliable check is a
+redeploy followed by inspection of the rendered artifact — the rendered `src` is
+the ground truth, not the dashboard.
+
 ## 7. Free-tier headroom (read live 2026-09-29)
 
 | Meter | Limit | Then |
