@@ -265,29 +265,30 @@ function resolveEnv(name: string): string | undefined {
 /**
  * Media URL for a Registry media reference.
  *
- * V0 rule: a LOCAL media reference is rendered as its Registry pathname UNCHANGED.
- * It is same-origin by construction, so no origin is prepended and no origin can
- * be wrong. A relative src also survives a future domain change.
+ * V0 rule: a LOCAL media reference is a root-relative Registry pathname and is
+ * returned UNCHANGED, unconditionally. It is same-origin by construction, so it
+ * is correct on any host and survives a domain change.
  *
- * PUBLIC_MEDIA_BASE_URL is NOT used for local media. It is reserved for a future
- * external CDN / media provider, which is the only case that needs an origin.
- * When it is unset - the V0 default - this returns the path unchanged.
+ * PUBLIC_MEDIA_BASE_URL is reserved for a future external CDN / media provider and
+ * is deliberately IGNORED for any root-relative path. That is not a convenience:
+ * the variable still exists in the Vercel environment with a stale value, and an
+ * earlier version of this function joined whenever the variable was merely SET.
+ * A stray value therefore re-pointed local media at a dead host and 404'd the
+ * video. Local paths must be immune to it by construction, not by remembering to
+ * unset the variable.
  *
- * An absolute http(s) reference is already complete and is returned untouched.
+ * The base applies only to a bare relative reference, which is how a future
+ * external provider will be expressed.
  *
  * NB: do not write a literal media path in a comment in this file. The registry
  * verifier scans raw source text for such literals and will (correctly) reject an
  * unversioned one, breaking the build for a reason that is invisible in review.
  */
 export function mediaUrl(path: string, base = process.env.PUBLIC_MEDIA_BASE_URL): string {
-  if (/^https?:\/\//.test(path)) return path;     // external / already absolute
-  if (!base) return path;                        // V0 default: unchanged pathname
-  let origin = base.replace(/\/+$/, '');
-  // defensive: tolerate a redundant trailing /media on a future external base
-  if (/\/media$/i.test(origin) && /^\/media\//i.test(path)) {
-    origin = origin.replace(/\/media$/i, '');
-  }
-  return origin + (path.startsWith('/') ? path : '/' + path);
+  if (/^https?:\/\//.test(path)) return path;   // external / already absolute
+  if (path.startsWith('/')) return path;        // local Registry pathname: unchanged, always
+  if (!base) return path;
+  return base.replace(/\/+$/, '') + '/' + path; // future external provider
 }
 
 /**

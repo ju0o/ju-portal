@@ -148,9 +148,16 @@ No origin is prepended. The asset is same-origin by construction, so there is
 nothing to configure and nothing to get wrong. A relative `src` also keeps working
 if the domain ever changes.
 
-`PUBLIC_MEDIA_BASE_URL` is **not required at V0**. It is reserved for a future
-external CDN or third-party media provider; when a path needs an external origin,
-that is the variable that supplies it. Leave it unset until that day.
+`PUBLIC_MEDIA_BASE_URL` is **not required at V0** and is **ignored for any
+root-relative Registry path**. It is reserved for a future external CDN or
+third-party media provider, and applies only to a bare relative reference.
+
+That is deliberate, not incidental. The variable still exists in the Vercel
+environment holding a stale value, and an earlier `mediaUrl()` joined whenever
+the variable was merely *set* — so a stray value silently re-pointed local media
+at a dead host. **Local media must be immune to that value by construction, not by
+remembering to unset it.** If you find yourself reasoning about unsetting a
+variable to make local media work, the implementation is wrong.
 
 **This replaces an earlier contract that defined `PUBLIC_MEDIA_BASE_URL` as the
 media origin.** That definition shipped a double-join (`/media/media/...`) and a
