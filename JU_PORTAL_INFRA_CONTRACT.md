@@ -141,6 +141,23 @@ After a rollback, add a line to `infra/INCIDENTS.md`.
 `ExternalMediaRef` uses a pinned versioned URL (a GitHub Release asset). External
 immutability comes from the pinned tag.
 
+**How a local path becomes a URL.** `PUBLIC_MEDIA_BASE_URL` is the **bare origin**
+and the Registry path already carries the `/media/` prefix. They are joined once:
+
+```
+PUBLIC_MEDIA_BASE_URL  = https://ju-portal-one.vercel.app        (origin)
+registry path          = /media/juqode/overview.v1.mp4           (already prefixed)
+result                 = https://ju-portal-one.vercel.app/media/juqode/overview.v1.mp4
+```
+
+`PUBLIC_MEDIA_BASE_URL` is **not** the media directory. Setting it to
+`https://.../media` is a double-join and yields `/media/media/...`, which 404s.
+This exact error shipped once and is why the value is called out here.
+
+`mediaUrl()` in `src/registry/action.ts` is the single implementation and it
+normalises a redundant trailing `/media` defensively, so either convention is safe.
+Do not hand-roll a second join.
+
 **Prefer local.** GitHub Release assets serve `application/octet-stream` with no
 `accept-ranges`, so they are unreliable as a `<video>` source. The 878 KB JuQode
 overview video was moved from its Release asset to a local
@@ -221,7 +238,14 @@ Authoritative copy: `.env.example`. Also set in Vercel (Production + Preview).
 NEXT_PUBLIC_SITE_URL=https://ju-portal-one.vercel.app
 NEXT_PUBLIC_GITHUB_ORG=ju0o
 NEXT_PUBLIC_ANALYTICS_ENABLED=true
-PUBLIC_MEDIA_BASE_URL=https://ju-portal-one.vercel.app/media
+
+# MEDIA ORIGIN — the bare origin. NOT the media directory.
+# Correct:   https://ju-portal-one.vercel.app
+# WRONG:     https://ju-portal-one.vercel.app/media   <- produces /media/media/...
+# The Registry already owns the /media/... prefix (see §4), so this value must not
+# repeat it. A trailing /media here is the single defect that broke the video CTA.
+PUBLIC_MEDIA_BASE_URL=https://ju-portal-one.vercel.app
+
 RELEASE_PROVIDER_DEFAULT=github_release
 RELEASE_RESOLVER_MODE=build
 RELEASE_CACHE_TTL_SECONDS=900
@@ -238,6 +262,10 @@ Hard rules:
 - **Changing an env var requires a rebuild.** It does not hot-patch a live build, and
   a rollback does **not** revert env vars. Record env and deploy changes together.
 - No `.env` is ever committed.
+- **Vercel marks these values as sensitive, so the edit form always shows them empty.**
+  An empty field in the Vercel UI is NOT evidence that the value is unset, and a
+  click on "Save" is NOT evidence that it persisted. The only reliable verification
+  is a redeploy followed by inspection of the rendered artifact.
 
 ---
 
