@@ -12,48 +12,53 @@ function env(name) {
 }
 
 /**
- * Canonical origin, from NEXT_PUBLIC_SITE_URL.
+ * Canonical origin.
  *
- * Empty for local dev, where relative URLs are correct. Never derived from the
- * request host: a Preview host must never become the canonical origin.
+ * Resolution order:
+ *   1. VERCEL_PROJECT_PRODUCTION_URL  - a Vercel system variable. It always
+ *      names the project's PRODUCTION domain and is present on Preview builds
+ *      too, so a Preview page still canonicalises to production.
+ *   2. NEXT_PUBLIC_SITE_URL            - manual/local fallback only.
+ *   3. ''                              - local development, where relative URLs
+ *      are correct.
+ *
+ * The Vercel variable deliberately wins: a stale dashboard value must never
+ * override the real production domain. Never derived from the request host.
  */
 export function siteUrl() {
+  const vercel = env('VERCEL_PROJECT_PRODUCTION_URL');
+  if (vercel) {
+    // Vercel provides a bare hostname; tolerate a scheme if one is present.
+    const withScheme = /^https?:\/\//i.test(vercel) ? vercel : 'https://' + vercel;
+    return withScheme.replace(/\/+$/, '');
+  }
   return env('NEXT_PUBLIC_SITE_URL').replace(/\/+$/, '');
-}
-
-/** Media base is an ORIGIN (or origin + prefix), from PUBLIC_MEDIA_BASE_URL. */
-export function mediaBase() {
-  return env('PUBLIC_MEDIA_BASE_URL').replace(/\/+$/, '');
 }
 
 /**
  * Resolve a registry-owned media path to a URL.
  *
- * The Registry path is authoritative and complete: /media/{slug}/{asset}.{version}.{ext}
- * No filename is ever derived here. Joining uses URL semantics rather than
- * string concatenation, so a base that already ends in /media can never produce
- * a duplicated segment such as /media/media/....
+ * V0 policy: the Portal hosts its own media, and the Registry path is already
+ * a complete, versioned, root-relative URL. It is returned unchanged so it
+ * resolves against whichever deployment is serving the page - Preview resolves
+ * /media/... on the Preview, Production on Production. No host env is involved
+ * and no filename is ever derived here.
  *
- * With no base configured the path is returned as-is (local dev, same origin).
+ * An absolute URL is passed through untouched, which leaves room for a future
+ * external CDN (R2) without pre-building one.
  */
 export function resolveMediaUrl(path) {
   if (!path) return '';
   if (/^https?:\/\//.test(path)) return path;
-
-  const base = mediaBase();
-  if (!base) return path;
-
-  // `new URL(path, base)` resolves the absolute path against the base origin,
-  // which is the correct behaviour for a registry path that is already absolute.
-  return new URL(path, base.endsWith('/') ? base : base + '/').toString();
+  return path;
 }
 
 /**
  * Canonical URL for a page path.
  *
- * With NEXT_PUBLIC_SITE_URL set this yields an absolute URL on the production
- * origin, e.g. {SITE_URL}/products/juqode. Without it, the path is returned
- * relative, which is correct for local dev.
+ * With an origin available this yields an absolute URL on the production
+ * domain, e.g. {SITE_URL}/products/juqode. Without one it returns the path
+ * relative, which is correct for local development.
  */
 export function canonicalUrl(pathname) {
   const origin = siteUrl();

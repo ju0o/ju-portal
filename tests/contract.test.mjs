@@ -193,29 +193,126 @@ test('no built page leaks a dev host or a preview hash', () => {
   }
 });
 
-test('site url resolution comes from NEXT_PUBLIC_SITE_URL and falls back locally', async () => {
+// ---------- host resolution ----------
+
+test('siteUrl prefers VERCEL_PROJECT_PRODUCTION_URL over a stale manual value', async () => {
   const url = new URL('src/lib/dom.js', `file://${ROOT}/`).href;
   const mod = await import(url);
 
-  delete process.env.NEXT_PUBLIC_SITE_URL;
-  assert.equal(mod.siteUrl(), '', 'unset env must yield an empty site url (local dev)');
+  const snapshot = { ...process.env };
+  const reset = () => {
+    delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+  };
 
-  process.env.NEXT_PUBLIC_SITE_URL = 'https://ju-portal-one.vercel.app/';
-  assert.equal(
-    mod.siteUrl(),
-    'https://ju-portal-one.vercel.app',
-    'must read the env value and trim the trailing slash',
+  try {
+    // A. The Vercel system variable alone yields an https origin.
+    reset();
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = 'ju-portal-one.vercel.app';
+    assert.equal(mod.siteUrl(), 'https://ju-portal-one.vercel.app', 'must add the https scheme');
+
+    // A scheme, if already present, is not doubled.
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = 'https://ju-portal-one.vercel.app';
+    assert.equal(mod.siteUrl(), 'https://ju-portal-one.vercel.app', 'must not double the scheme');
+
+    // A trailing slash is trimmed.
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = 'ju-portal-one.vercel.app/';
+    assert.equal(mod.siteUrl(), 'https://ju-portal-one.vercel.app', 'must trim the trailing slash');
+
+    // C. A stale manual value must NOT override the Vercel system variable.
+    reset();
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = 'ju-portal-one.vercel.app';
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://ju-portal.vercel.app';
+    assert.equal(
+      mod.siteUrl(),
+      'https://ju-portal-one.vercel.app',
+      'a stale NEXT_PUBLIC_SITE_URL must not override VERCEL_PROJECT_PRODUCTION_URL',
+    );
+
+    // B. A Preview build still canonicalises to the production domain.
+    reset();
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = 'ju-portal-one.vercel.app';
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://ju-portal-izimdu467-ju0o.vercel.app';
+    assert.equal(
+      mod.canonicalUrl('/products/juqode'),
+      'https://ju-portal-one.vercel.app/products/juqode',
+      'a preview build must canonicalise to the production domain',
+    );
+
+    // Manual fallback when the Vercel variable is absent.
+    reset();
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://ju-portal-one.vercel.app/';
+    assert.equal(mod.siteUrl(), 'https://ju-portal-one.vercel.app', 'manual fallback still works');
+
+    // Local development.
+    reset();
+    assert.equal(mod.siteUrl(), '', 'no env at all must yield an empty origin for local dev');
+    assert.equal(mod.canonicalUrl('/products'), '/products', 'local dev falls back to a relative path');
+  } finally {
+    for (const k of Object.keys(process.env)) {
+      if (!(k in snapshot)) delete process.env[k];
+    }
+    Object.assign(process.env, snapshot);
+  }
+});
+
+test('resolveMediaUrl returns registry media paths unchanged', async () => {
+  const url = new URL('src/lib/dom.js', `file://${ROOT}/`).href;
+  const mod = await import(url);
+  const path = '/media/juqode/overview.v1.mp4';
+
+  const snapshot = { ...process.env };
+  try {
+    // D. Local registry path is returned verbatim, whatever the host envs say.
+    for (const base of [undefined, 'https://ju-portal-one.vercel.app', 'https://cdn.example.com/media']) {
+      if (base === undefined) delete process.env.PUBLIC_MEDIA_BASE_URL;
+      else process.env.PUBLIC_MEDIA_BASE_URL = base;
+      assert.equal(
+        mod.resolveMediaUrl(path),
+        path,
+        'registry path must be returned unchanged (base: ' + base + ')',
+      );
+    }
+
+    // No host env may be involved at all.
+    delete process.env.PUBLIC_MEDIA_BASE_URL;
+    assert.equal(mod.resolveMediaUrl(path), path);
+
+    // G. A duplicated /media/ segment is structurally impossible.
+    assert.ok(!mod.resolveMediaUrl(path).includes('/media/media/'));
+
+    // An absolute external URL passes through unchanged (future CDN ready).
+    assert.equal(
+      mod.resolveMediaUrl('https://cdn.example.com/media/juqode/overview.v1.mp4'),
+      'https://cdn.example.com/media/juqode/overview.v1.mp4',
+      'an absolute external media URL must be preserved',
+    );
+
+    // Falsy input.
+    assert.equal(mod.resolveMediaUrl(''), '');
+    assert.equal(mod.resolveMediaUrl(undefined), '');
+  } finally {
+    for (const k of Object.keys(process.env)) {
+      if (!(k in snapshot)) delete process.env[k];
+    }
+    Object.assign(process.env, snapshot);
+  }
+});
+
+test('rendered HTML references media relatively, not via an absolute dead host', () => {
+  const html = readFileSync(join(DIST, 'products/juqode/index.html'), 'utf8');
+
+  // E. The src must be the registry path itself.
+  assert.ok(
+    html.includes('src="/media/juqode/overview.v1.mp4"'),
+    'the video src must be the relative registry path',
   );
-
-  // A preview hash must never become the canonical origin.
-  process.env.NEXT_PUBLIC_SITE_URL = 'https://ju-portal-abc123-jiuhans-projects.vercel.app';
-  assert.equal(
-    mod.siteUrl(),
-    'https://ju-portal-abc123-jiuhans-projects.vercel.app',
-    'siteUrl returns whatever the env declares; the build must not inject a preview hash',
+  assert.ok(
+    !/src="https?:\/\/[^"]*\/media\/juqode\/overview\.v1\.mp4"/.test(html),
+    'media must not be absolutised to a host that may differ from the serving deployment',
   );
-
-  delete process.env.NEXT_PUBLIC_SITE_URL;
+  // G. No duplicated segment.
+  assert.ok(!html.includes('/media/media/'), 'rendered output must not contain /media/media/');
 });
 
 // ---------- canonical / og ----------
@@ -278,32 +375,6 @@ test('canonical origin comes from the env, never from a preview host or localhos
 });
 
 // ---------- media url joining ----------
-
-test('media URLs never produce a duplicated /media/ segment', async () => {
-  const url = new URL('src/lib/dom.js', `file://${ROOT}/`).href;
-  const mod = await import(url);
-  const path = '/media/juqode/overview.v1.mp4';
-
-  const bases = [
-    'https://ju-portal-one.vercel.app',        // origin only (the contract)
-    'https://ju-portal-one.vercel.app/',       // trailing slash
-    'https://ju-portal-one.vercel.app/media',  // base already ends in /media
-    'https://cdn.example.com/media',           // a different host with the suffix
-  ];
-
-  for (const base of bases) {
-    process.env.PUBLIC_MEDIA_BASE_URL = base;
-    const resolved = mod.resolveMediaUrl(path);
-    assert.ok(!resolved.includes('/media/media/'), 'base ' + base + ' produced ' + resolved);
-    assert.ok(
-      resolved.endsWith(path),
-      'base ' + base + ' must preserve the registry path verbatim, got ' + resolved,
-    );
-  }
-
-  process.env.PUBLIC_MEDIA_BASE_URL = '';
-  assert.equal(mod.resolveMediaUrl(path), path, 'no base returns the registry path unchanged');
-});
 
 test('no rendered page contains a duplicated /media/ path segment', () => {
   for (const f of walk(DIST)) {
