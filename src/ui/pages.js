@@ -1,117 +1,49 @@
 import { getPrimaryAction } from '../registry/action.ts';
 import { esc } from '../lib/dom.js';
-import { mediaFrame, primaryAction, layout } from './components.js';
+import {
+  mediaFrame,
+  primaryAction,
+  layout,
+  signalIcon,
+  platformTags,
+  capabilities,
+} from './components.js';
 
-/** Hint chips — contract §4 baseline (3) plus the Founder's extended pool. */
-const HINTS = [
-  'AI가 뭘 수정했는지 보고 싶어',
-  '말로 앱 만들고 싶어',
-  '코드를 쉽게 이해하고 싶어',
-  'Agent에게 능력 추가',
-  '새로운 AI 도구 찾기',
-];
-
-/** One short line for a card. Never three. */
+/** One short line for a tile. Never three. */
 function oneLine(text) {
   const first = String(text ?? '').split(/[.!?。\n]/)[0].trim();
-  return first.length > 60 ? first.slice(0, 58) + '…' : first;
+  return first.length > 58 ? first.slice(0, 56) + '…' : first;
 }
 
-function labelPlatform(code) {
-  const map = { web: '웹', windows: 'Windows', node: '터미널', macos: 'macOS', linux: 'Linux' };
-  return map[code] ?? code;
-}
-
-function iconFor(title) {
-  return String(title ?? 'JU')
-    .replace(/^Ju/, '')
-    .slice(0, 2)
-    .toUpperCase();
-}
+const STATUS = { available: '바로 써보기', beta: 'Beta', planned: '예정' };
 
 /**
- * Discovery index — Registry-driven only. No backend, no LLM, no invented
- * product. Each entry carries the words the real product answers to.
+ * Product tile. Media leads, then the product's own Signal icon, its real
+ * status from the resolver, a one-line outcome, real meta tags, and the real
+ * primary CTA plus a real deep route.
  */
-export function discoveryIndex(products, radar) {
-  const intentKeywords = {
-    juqode: '말로 앱 만들고 싶어 앱 만들기 만들기 화면 에이전트 실행 브라우저',
-    jutell: '코드를 쉽게 이해하고 싶어 ai가 뭘 했는지 확인 리포트 정리 요약 기록',
-  };
-
-  return [
-    ...products.map((p) => ({
-      href: `/products/${p.slug}/`,
-      name: p.title,
-      tagline: oneLine(p.summary),
-      haystack: [p.title, p.summary, intentKeywords[p.slug] ?? ''].join(' ').toLowerCase(),
-    })),
-    {
-      href: '/skills/',
-      name: 'Skills',
-      tagline: 'Agent에게 새로운 능력을 붙여요.',
-      haystack: 'skills agent에게 능력 추가 스킬 기능 확장 커스텀 붙이기',
-    },
-    ...radar.map((r) => ({
-      href: '/radar/',
-      name: r.title,
-      tagline: '새로운 AI 도구를 찾는 곳.',
-      haystack: 'radar 새로운 ai 도구 찾기 새 도구 발견 탐색',
-    })),
-  ];
-}
-
-/** Hero — contract §3: eyebrow pill, huge headline, lime second line. */
-function hero() {
-  return `<div class="hero">
-  <span class="eyebrow">JU PRODUCT PORTAL</span>
-  <h1>필요한 도구를 찾고,<br><em>바로 써보세요.</em></h1>
-  <p>JU는 GitHub 프로젝트 목록이 아닙니다. 제품을 이해하고, 데모하고, 다운로드하거나 바로 실행하는 공식 제품 포털입니다.</p>
-  <form class="command" role="search" data-discovery>
-    <input type="search" name="q" placeholder="지금 뭘 하고 싶나요?" aria-label="지금 뭘 하고 싶나요?" autocomplete="off">
-    <button type="submit">찾아보기</button>
-  </form>
-  <div class="hints">
-    ${HINTS.map((h) => `<button class="hint" type="button" data-hint="${esc(h)}">${esc(h)}</button>`).join('')}
-  </div>
-  <div class="banner" data-banner role="status" hidden></div>
-</div>`;
-}
-
-/**
- * Product card — contract §5: media, icon+status, name, one line, meta, actions.
- *
- * The media and title are real links with their true deep-route href, so a
- * middle-click, right-click "open in new tab", or keyboard activation still
- * lands on /products/{slug}. P0-6 intercepts a plain left click on desktop to
- * open the showroom overlay instead; the href is the fallback and the contract's
- * "never trade real routes for the modal" requirement.
- */
-function productCard(p) {
+function productTile(p) {
   const action = getPrimaryAction(p);
   const href = `/products/${p.slug}/`;
-  const platforms = (p.releases ?? []).flatMap((r) => r.platforms ?? []);
-  const tags = [...new Set([...platforms.map(labelPlatform), action.version].filter(Boolean))];
+  const tags = [...platformTags(p), action.version].filter(Boolean);
 
-  return `<article class="card is-link">
+  return `<article class="tile">
   <a href="${href}" data-showroom="${esc(p.slug)}" aria-label="${esc(p.title)} 자세히 보기">
-    <div class="card-media">${mediaFrame(p)}</div>
+    <div class="tile-media">${mediaFrame(p)}</div>
   </a>
-  <div class="top">
-    <div class="appicon" aria-hidden="true">${esc(iconFor(p.title))}</div>
-    <span class="status ${action.resolved ? 'is-ready' : 'is-beta'}">${action.resolved ? '바로 써보기' : '베타'}</span>
-  </div>
-  <h3><a href="${href}" data-showroom="${esc(p.slug)}">${esc(p.title)}</a></h3>
-  <p class="tagline">${esc(oneLine(p.summary))}</p>
-  <div class="meta">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
-  <div class="actions">
+  ${signalIcon(p.slug)}
+  <span class="chip ${action.resolved ? 'is-ready' : 'is-beta'}">${esc(STATUS[action.resolved ? 'available' : p.status] ?? p.status)}</span>
+  <h3 class="tile-name"><a href="${href}" data-showroom="${esc(p.slug)}">${esc(p.title)}</a></h3>
+  <p class="tile-purpose">${esc(oneLine(p.summary))}</p>
+  ${tags.length ? `<div class="actions" style="gap:6px">${tags.map((t) => `<span class="chip">${esc(t)}</span>`).join('')}</div>` : ''}
+  <div class="tile-actions">
     ${primaryAction(p)}
-    <a class="btn" href="${href}">자세히</a>
+    <a class="btn btn-sm" href="${href}">자세히</a>
   </div>
 </article>`;
 }
 
-/** Labs — contract §8: light rows, never Product-style cards, no install CTA. */
+/** Labs read as light rows, never as Product tiles. No fake install. */
 function labRow(l) {
   const state = l.status === 'beta' ? '베타' : '실험 중';
   return `<div class="labrow" id="${esc(l.slug)}">
@@ -119,61 +51,106 @@ function labRow(l) {
     <b>${esc(l.title)}</b><br>
     <small>${esc(state)} · 아직 제품으로 출시하지 않은 실험</small>
   </div>
-  ${
-    l.source?.url
-      ? `<a class="btn" href="${esc(l.source.url)}" rel="noopener">Source &#8599;</a>`
-      : '<span class="tag">LAB</span>'
-  }
+  ${l.source?.url ? `<a class="btn btn-sm" href="${esc(l.source.url)}" rel="noopener">Source &#8599;</a>` : '<span class="chip is-lab">LAB</span>'}
 </div>`;
 }
 
-function skillCard(s) {
-  return `<article class="card is-link">
-  <div class="top">
-    <div class="appicon" aria-hidden="true">${esc(iconFor(s.title))}</div>
-    <span class="status">v${esc(s.version)}</span>
-  </div>
-  <h3><a href="/skills/${esc(s.slug)}/">${esc(s.title)}</a></h3>
-  <p class="tagline">${esc(oneLine(s.summary))}</p>
-  <div class="meta">${(s.compatibleAgents ?? []).map((a) => `<span class="tag">${esc(a)}</span>`).join('')}</div>
-  <div class="actions"><a class="btn cta" href="/skills/${esc(s.slug)}/">자세히</a></div>
+function skillTile(s) {
+  return `<article class="tile">
+  <span class="chip">v${esc(s.version)}</span>
+  <h3 class="tile-name"><a href="/skills/${esc(s.slug)}/">${esc(s.title)}</a></h3>
+  <p class="tile-purpose">${esc(oneLine(s.summary))}</p>
+  ${(s.compatibleAgents ?? []).length ? `<div class="actions" style="gap:6px">${(s.compatibleAgents ?? []).map((a) => `<span class="chip">${esc(a)}</span>`).join('')}</div>` : ''}
+  <div class="tile-actions"><a class="btn cta btn-sm" href="/skills/${esc(s.slug)}/">자세히</a></div>
 </article>`;
 }
 
-export function renderHome({ products, skills, labs, radar, currentPath, overlays = '' }) {
+/** Hero: founder dot texture on the right, intent and actions on the left. */
+function hero() {
+  return `<section class="hero" data-section="top">
+  <div class="hero-copy">
+    <p class="label">JU · HUMAN × AI × TOOLS</p>
+    <h1 class="display hero-title">
+      <span>비개발자의 생각이 말이 되고,</span>
+      <span>말이 AI의 작업이 되고,</span>
+      <span>그 결과가 다시 사람이 이해할 수 있는</span>
+      <span><em>도구가 됩니다.</em></span>
+    </h1>
+    <p class="hero-sub">생각이 흐르면, AI가 움직입니다.<br>하나씩 나타나고, 점점 형태가 됩니다.</p>
+    <div class="hero-actions">
+      <a class="btn cta" href="/products/">JU 제품 시작하기 <span aria-hidden="true">→</span></a>
+      <a class="btn" href="/skills/">Skills 보기</a>
+    </div>
+  </div>
+  <div class="hero-signal" aria-hidden="true">
+    <div class="signal-field"><div class="portrait-dots" data-founder-dots></div></div>
+    <div class="signal-word">JU</div>
+    <span class="signal-node signal-node-a"></span>
+    <span class="signal-node signal-node-b"></span>
+    <span class="signal-node signal-node-c"></span>
+  </div>
+</section>`;
+}
+
+/**
+ * Notification CTA. There is NO subscription backend at V0, so nothing is
+ * collected and nothing is discarded: the state is stated honestly instead of
+ * shipping an input that silently throws an address away.
+ */
+function notifyBand() {
+  return `<section class="band" data-section="notify">
+  <div class="band-head"><h2 class="title">지금, JU의 다음 소식을<br>가장 먼저 받아보세요.</h2></div>
+  <p class="muted" style="margin:0;max-width:46rem">새로운 기능, 제품 업데이트, 그리고 더 큰 가능성에 대한 소식을 전해드립니다.</p>
+  <p class="label" style="margin-top:8px">알림 기능 준비 중</p>
+  <p class="muted" style="margin:0;max-width:46rem;font-size:14px">구독을 받는 서버가 아직 없습니다. 준비되면 이곳에서 이메일을 받고 소식을 전해드리겠습니다.</p>
+</section>`;
+}
+
+export function renderHome({ products, skills, labs, currentPath, overlays = '' }) {
   const body = `${hero()}
 
-<section id="products">
-  <div class="sectionHead">
-    <h2>Products</h2>
-    <p>지금 실제로 써 볼 수 있는 제품.</p>
+<section class="band" id="products" data-section="products">
+  <div class="band-head">
+    <div class="band-index"><span class="band-num">01</span></div>
+    <div>
+      <h2 class="title">지금 실제로 써 볼 수 있는 제품</h2>
+      <p>설치하지 않고 바로 열어보거나, 명령 한 줄로 시작하는 도구.</p>
+    </div>
   </div>
-  <div class="grid">${products.map(productCard).join('')}</div>
+  <div class="grid grid-3">${products.map(productTile).join('')}</div>
 </section>
 
 ${
   skills.length
-    ? `<section id="skills">
-  <div class="sectionHead">
-    <h2>Skills</h2>
-    <p>Agent에게 새로운 능력을 붙여요.</p>
+    ? `<section class="band" id="skills" data-section="skills">
+  <div class="band-head">
+    <div class="band-index"><span class="band-num">02</span></div>
+    <div>
+      <h2 class="title">Skills</h2>
+      <p>Agent에게 새로운 능력을 붙여요.</p>
+    </div>
   </div>
-  <div class="grid">${skills.map(skillCard).join('')}</div>
+  <div class="grid grid-3">${skills.map(skillTile).join('')}</div>
 </section>`
     : ''
 }
 
 ${
   labs.length
-    ? `<section id="labs">
-  <div class="sectionHead">
-    <h2>Labs</h2>
-    <p>완제품으로 가장하지 않는 연구·실험 공간.</p>
+    ? `<section class="band" id="labs" data-section="labs">
+  <div class="band-head">
+    <div class="band-index"><span class="band-num">${skills.length ? '03' : '02'}</span></div>
+    <div>
+      <h2 class="title">Labs</h2>
+      <p>완제품으로 가장하지 않는 연구·실험 공간.</p>
+    </div>
   </div>
   ${labs.map(labRow).join('')}
 </section>`
     : ''
-}`;
+}
+
+${notifyBand()}`;
 
   return layout(
     'JU — 필요한 도구를 찾고, 바로 써보세요',
@@ -185,21 +162,27 @@ ${
 }
 
 export function renderProducts({ products, currentPath, overlays = '' }) {
-  const body = `<section>
-  <div class="sectionHead">
-    <h2>Products</h2>
-    <p>지금 바로 써 볼 수 있는 제품만 여기에 둡니다.</p>
+  const body = `<section class="band" data-section="products">
+  <div class="band-head">
+    <div class="band-index"><span class="band-num">01</span></div>
+    <div>
+      <h1 class="title">Products</h1>
+      <p>지금 바로 써 볼 수 있는 제품만 여기에 둡니다.</p>
+    </div>
   </div>
-  <div class="grid">${products.map(productCard).join('')}</div>
+  <div class="grid grid-3">${products.map(productTile).join('')}</div>
 </section>`;
   return layout('Products', '지금 실제로 써 볼 수 있는 JU 제품.', currentPath, body, { overlays });
 }
 
 export function renderLabs({ labs, currentPath }) {
-  const body = `<section>
-  <div class="sectionHead">
-    <h2>Labs</h2>
-    <p>완제품으로 가장하지 않는 연구·실험 공간. 아직 제품으로 출시하지 않았습니다.</p>
+  const body = `<section class="band" data-section="labs">
+  <div class="band-head">
+    <div class="band-index"><span class="band-num">01</span></div>
+    <div>
+      <h1 class="title">Labs</h1>
+      <p>완제품으로 가장하지 않는 연구·실험 공간. 아직 제품으로 출시하지 않았습니다.</p>
+    </div>
   </div>
   ${
     labs.length
@@ -211,57 +194,64 @@ export function renderLabs({ labs, currentPath }) {
 }
 
 export function renderSkills({ skills, currentPath }) {
-  const body = `<section>
-  <div class="sectionHead">
-    <h2>Skills</h2>
-    <p>Agent에게 새로운 능력을 붙여요.</p>
+  const body = `<section class="band" data-section="skills">
+  <div class="band-head">
+    <div class="band-index"><span class="band-num">01</span></div>
+    <div>
+      <h1 class="title">Skills</h1>
+      <p>Agent에게 새로운 능력을 붙여요.</p>
+    </div>
   </div>
   ${
     skills.length
-      ? `<div class="grid">${skills.map(skillCard).join('')}</div>`
+      ? `<div class="grid grid-3">${skills.map(skillTile).join('')}</div>`
       : `<div class="empty">
-  <div class="mark">S</div>
-  <p>첫 스킬이 준비되면 여기에 표시됩니다.</p>
-</div>`
+    <div class="mark">S</div>
+    <p>첫 스킬이 준비되면 여기에 표시됩니다.</p>
+  </div>`
   }
 </section>`;
   return layout('Skills', 'Agent에게 새로운 능력을 붙여요.', currentPath, body);
 }
 
-/** Radar — contract §9: exactly one discovery card, one CTA. */
+/** Radar: one discovery card, one CTA, origin resolved by the Infra resolver. */
 export function renderRadar({ radar, currentPath }) {
   const r = radar[0];
   const action = r ? getPrimaryAction(r) : null;
 
-  const body = `<section>
-  <div class="sectionHead">
-    <h2>Radar</h2>
-    <p>JU가 발견하고 검증하는 새로운 AI / Agent / 개발도구</p>
-  </div>
-  <article class="card" style="min-height:auto">
-    <div class="top">
-      <div class="appicon" aria-hidden="true">R</div>
-      <span class="status">MEDIA</span>
+  const body = `<section class="band" data-section="radar">
+  <div class="band-head">
+    <div class="band-index"><span class="band-num">01</span></div>
+    <div>
+      <h1 class="title">Radar</h1>
+      <p>JU가 발견하고 검증하는 새로운 AI / Agent / 개발도구</p>
     </div>
-    <h3>JU Radar</h3>
-    <p class="tagline">새로운 AI 도구를 찾는 곳.</p>
-    <div class="actions">
+  </div>
+  ${
+    r
+      ? `<article class="tile" style="max-width:30rem">
+    <span class="appicon" aria-hidden="true">R</span>
+    <span class="chip">MEDIA</span>
+    <h3 class="tile-name">JU Radar</h3>
+    <p class="tile-purpose">새로운 AI 도구를 찾는 곳.</p>
+    <div class="tile-actions">
       ${
         action?.resolved
-          ? `<a class="btn cta" href="${esc(action.href)}" rel="noopener" data-cta data-slug="${esc(r.slug)}" data-verb="${esc(action.verb)}">Open Radar</a>`
-          : '<span class="btn is-disabled" aria-disabled="true">Open Radar</span>'
+          ? `<a class="btn cta btn-sm" href="${esc(action.href)}" rel="noopener" data-cta data-slug="${esc(r.slug)}" data-verb="${esc(action.verb)}">Open Radar</a>`
+          : '<span class="btn is-disabled btn-sm" aria-disabled="true">Open Radar</span>'
       }
     </div>
-  </article>
+  </article>`
+      : `<div class="empty"><div class="mark">R</div><p>아직 연결된 항목이 없습니다.</p></div>`
+  }
 </section>`;
   return layout('Radar', '새로운 AI 도구 찾기.', currentPath, body);
 }
 
-/** 404 — non-indexable, no canonical. */
 export function renderNotFound({ currentPath }) {
-  const body = `<section>
-  <div class="sectionHead"><h2>찾을 수 없는 페이지입니다</h2></div>
-  <p style="color:var(--muted);margin:0 0 20px">주소가 바뀌었거나 아직 공개되지 않은 페이지일 수 있습니다.</p>
+  const body = `<section class="band">
+  <div class="band-head"><h1 class="title">찾을 수 없는 페이지입니다</h1></div>
+  <p class="muted" style="margin:0 0 20px">주소가 바뀌었거나 아직 공개되지 않은 페이지일 수 있습니다.</p>
   <a class="btn cta" href="/">홈으로 가기</a>
 </section>`;
   return layout('페이지를 찾을 수 없습니다', '', currentPath, body, { indexable: false });

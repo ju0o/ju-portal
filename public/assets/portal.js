@@ -1,94 +1,11 @@
-/* Progressive enhancement only. The site is fully usable with JS disabled:
+/* JU Portal — JU Brand System V1 client behaviour.
+   Progressive enhancement only: the Portal is fully usable with JS disabled —
    navigation is real links, media uses native controls, deep routes work.
-   Discovery (contract §4) is client-side over a build-time dataset - no
-   backend, no LLM, no network request.
-
-   The nav toggle that used to live here was removed in DESIGN CONTRACT v1
-   §11: the prototype has no hamburger, and the old one had a defect where
-   aria-expanded="false" still left its panel rendered. */
+   Motion follows APPEAR -> ASSEMBLE -> RESOLVE and respects reduced-motion. */
 (function () {
   'use strict';
 
-  // ---------- showroom overlay (P0-6, contract §6) ----------
-  //
-  // Desktop only. Below 850px the contract keeps route-style detail, so a card
-  // click navigates normally and no overlay is ever shown.
-  //
-  // Accessibility contract:
-  //   - real dialog semantics already in the markup (role/aria-modal/label)
-  //   - focus moves into the dialog on open, and returns to the originating
-  //     control on close
-  //   - Escape closes
-  //   - backdrop click closes
-  //   - background is inert and body scroll is locked while open
-  //
-  // Modified clicks (ctrl/meta/shift/middle) are NOT intercepted, so
-  // "open in new tab" and the real href both keep working.
-  var DESKTOP_MIN = 850;
-  var hasOverlay = document.body.getAttribute('data-has-overlay') === 'true';
-  if (hasOverlay && window.matchMedia('(min-width: ' + DESKTOP_MIN + 'px)').matches) {
-    var lastFocused = null;
-
-    function overlayFor(slug) {
-      return document.querySelector('.overlay[data-overlay="' + slug + '"]');
-    }
-
-    function openOverlay(slug, trigger) {
-      var ov = overlayFor(slug);
-      if (!ov) return false;
-      lastFocused = trigger || document.activeElement;
-      ov.hidden = false;
-      ov.classList.add('open');
-      document.body.classList.add('is-locked');
-      // Move focus into the dialog, onto the close control.
-      var close = ov.querySelector('[data-overlay-close]');
-      if (close) close.focus();
-      return true;
-    }
-
-    function closeOverlay(ov) {
-      if (!ov || ov.hidden) return;
-      ov.hidden = true;
-      ov.classList.remove('open');
-      if (!document.querySelector('.overlay.open')) {
-        document.body.classList.remove('is-locked');
-      }
-      // Return focus to whatever opened the dialog.
-      if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
-      lastFocused = null;
-    }
-
-    function closeTopmost() {
-      var open = document.querySelector('.overlay.open');
-      if (open) closeOverlay(open);
-    }
-
-    document.querySelectorAll('[data-showroom]').forEach(function (trigger) {
-      trigger.addEventListener('click', function (e) {
-        // Respect modified clicks: they mean "open the real route".
-        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-        var slug = trigger.getAttribute('data-showroom');
-        if (openOverlay(slug, trigger)) {
-          e.preventDefault();
-        }
-      });
-    });
-
-    document.addEventListener('click', function (e) {
-      var ov = e.target.closest ? e.target.closest('.overlay') : null;
-      if (!ov) return;
-      if (e.target.closest('[data-overlay-close]')) {
-        closeOverlay(ov);
-        return;
-      }
-      // Backdrop click: only when the click landed on the overlay itself.
-      if (e.target === ov) closeOverlay(ov);
-    });
-
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeTopmost();
-    });
-  }
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ---------- copy buttons ----------
   document.querySelectorAll('[data-copy]').forEach(function (btn) {
@@ -98,107 +15,149 @@
       navigator.clipboard.writeText(value).then(
         function () {
           btn.textContent = '복사됨';
-          setTimeout(function () {
-            btn.textContent = '복사';
-          }, 1800);
+          setTimeout(function () { btn.textContent = '복사'; }, 1800);
         },
         function () {},
       );
     });
   });
 
-  // ---------- discovery (P0-3) ----------
-  var INDEX_RAW = document.body.getAttribute('data-discovery-index');
-  var form = document.querySelector('[data-discovery]');
-  var banner = document.querySelector('[data-banner]');
-  if (!INDEX_RAW || !form || !banner) return;
-
-  var INDEX;
-  try {
-    INDEX = JSON.parse(INDEX_RAW);
-  } catch (e) {
-    return;
+  // ---------- founder portrait: derived dot geometry ----------
+  // Loaded as separate JSON so the page never carries any raster of the source.
+  var portraitHost = document.querySelector('[data-founder-dots]');
+  if (portraitHost) {
+    fetch('/brand/founder-signal.json')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var frag = document.createDocumentFragment();
+        for (var i = 0; i < data.dots.length; i++) {
+          var d = data.dots[i];
+          var el = document.createElement('i');
+          el.className = 'portrait-dot ' + d.t;
+          el.style.left = ((d.x + 0.5) / data.cols * 100).toFixed(3) + '%';
+          el.style.top = ((d.y + 0.5) / data.rows * 100).toFixed(3) + '%';
+          el.style.width = d.r + 'px';
+          el.style.height = d.r + 'px';
+          el.style.opacity = d.a;
+          el.style.animation = 'ju-draw .5s var(--ease) backwards';
+          el.style.animationDelay = ((d.x * 0.6 + d.y * 1.1) % 18) * 0.05 + 's';
+          frag.appendChild(el);
+        }
+        portraitHost.appendChild(frag);
+      })
+      .catch(function () { portraitHost.remove(); });
   }
 
-  var input = form.querySelector('input');
+  // ---------- scroll reveal ----------
+  // The .js-reveal class is added here, not in CSS, so content is never hidden
+  // unless this script is running and able to reveal it again.
+  var revealables = Array.prototype.slice.call(
+    document.querySelectorAll('.hero-copy > *, .band-title, .band-head, .tile, .labrow, .empty')
+  );
+  if (!reduced && 'IntersectionObserver' in window && revealables.length) {
+    document.documentElement.classList.add('js-reveal');
+    revealables.forEach(function (el) { el.classList.add('reveal'); });
+    var io = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('is-in');
+          io.unobserve(entry.target);
+        });
+      },
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.05 }
+    );
+    revealables.forEach(function (el) { io.observe(el); });
+    setTimeout(function () {
+      revealables.forEach(function (el) {
+        if (el.getBoundingClientRect().top < window.innerHeight * 2.4) el.classList.add('is-in');
+      });
+    }, 1200);
+  }
 
-  /** Score an entry against the query. Exact title hits outweigh substrings. */
-  function score(entry, query) {
-    var q = query.trim().toLowerCase();
-    if (!q) return 0;
-    var hay = (entry.haystack || '').toLowerCase();
-    var name = (entry.name || '').toLowerCase();
-    var total = 0;
-    var terms = q.split(/\s+/).filter(Boolean);
-    for (var i = 0; i < terms.length; i++) {
-      var t = terms[i];
-      if (!t) continue;
-      if (name.indexOf(t) !== -1) {
-        total += 12;
-      } else if (hay.indexOf(t) !== -1) {
-        total += 4;
-      }
+  // ---------- side rail: active section + progress ----------
+  var sections = Array.prototype.slice.call(document.querySelectorAll('[data-section]'));
+  var railItems = Array.prototype.slice.call(document.querySelectorAll('[data-rail]'));
+  var progress = document.querySelector('[data-progress]');
+
+  function syncRail() {
+    var y = window.scrollY;
+    var vh = window.innerHeight;
+    var current = sections.length ? sections[0].id : null;
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].offsetTop - vh * 0.35 <= y) current = sections[i].id;
     }
-    return total;
-  }
-
-  function find(query) {
-    var best = null;
-    var bestScore = 0;
-    for (var i = 0; i < INDEX.length; i++) {
-      var s = score(INDEX[i], query);
-      if (s > bestScore) {
-        bestScore = s;
-        best = INDEX[i];
-      }
+    railItems.forEach(function (item) {
+      var on = item.getAttribute('data-rail') === current;
+      item.classList.toggle('is-active', on);
+      if (on) item.setAttribute('aria-current', 'page');
+      else item.removeAttribute('aria-current');
+    });
+    if (progress) {
+      var max = Math.max(1, document.body.scrollHeight - vh);
+      progress.style.height = Math.min(100, Math.max(0, (y / max) * 100)) + '%';
     }
-    return best;
   }
 
-  function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  var ticking = false;
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(function () { syncRail(); ticking = false; });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  syncRail();
+
+  // ---------- showroom overlay ----------
+  // Desktop only; below 850px the deep route is used. Modified clicks are not
+  // intercepted, so "open in new tab" still reaches the real route.
+  var DESKTOP_MIN = 850;
+  if (document.body.getAttribute('data-has-overlay') === 'true' &&
+      window.matchMedia('(min-width: ' + DESKTOP_MIN + 'px)').matches) {
+    var lastFocused = null;
+
+    function overlayFor(slug) {
+      return document.querySelector('.overlay[data-overlay="' + slug + '"]');
+    }
+    function openOverlay(slug, trigger) {
+      var ov = overlayFor(slug);
+      if (!ov) return false;
+      lastFocused = trigger || document.activeElement;
+      ov.hidden = false;
+      ov.classList.add('open');
+      document.body.classList.add('is-locked');
+      var close = ov.querySelector('[data-overlay-close]');
+      if (close) close.focus();
+      return true;
+    }
+    function closeOverlay(ov) {
+      if (!ov || ov.hidden) return;
+      ov.hidden = true;
+      ov.classList.remove('open');
+      if (!document.querySelector('.overlay.open')) document.body.classList.remove('is-locked');
+      if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
+      lastFocused = null;
+    }
+
+    document.querySelectorAll('[data-showroom]').forEach(function (trigger) {
+      trigger.addEventListener('click', function (e) {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+        if (openOverlay(trigger.getAttribute('data-showroom'), trigger)) e.preventDefault();
+      });
+    });
+
+    document.addEventListener('click', function (e) {
+      var ov = e.target.closest ? e.target.closest('.overlay') : null;
+      if (!ov) return;
+      if (e.target.closest('[data-overlay-close]')) { closeOverlay(ov); return; }
+      if (e.target === ov) closeOverlay(ov);
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      var open = document.querySelector('.overlay.open');
+      if (open) closeOverlay(open);
     });
   }
-
-  function render(query) {
-    if (!query.trim()) {
-      banner.hidden = true;
-      banner.innerHTML = '';
-      return;
-    }
-    var hit = find(query);
-    if (!hit) {
-      banner.hidden = false;
-      banner.innerHTML =
-        '<span>추천 없음</span><br>문제나 필요를 다른 표현으로 입력해보세요.';
-      return;
-    }
-    banner.hidden = false;
-    banner.innerHTML =
-      '추천: <span class="recname">' +
-      esc(hit.name) +
-      '</span> — ' +
-      esc(hit.tagline) +
-      ' <a href="' +
-      esc(hit.href) +
-      '">열어보기</a>';
-  }
-
-  form.addEventListener('submit', function (e) {
-    e.preventDefault();
-    render(input.value);
-  });
-
-  input.addEventListener('input', function () {
-    render(input.value);
-  });
-
-  // Hint chips fill the field and run the same matcher.
-  document.querySelectorAll('[data-hint]').forEach(function (chip) {
-    chip.addEventListener('click', function () {
-      input.value = chip.getAttribute('data-hint') || '';
-      render(input.value);
-    });
-  });
 })();

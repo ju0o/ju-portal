@@ -133,14 +133,17 @@ async function audit(page) {
       if (r.right > de.clientWidth + 1 || r.left < -1) mediaOverflow++;
     }
 
-    // Readability floor. DESIGN CONTRACT v1 fixes .status and .tag at 11px
-    // (PROTOTYPE_MATCH, extracted from the artifact), so those labels are
-    // excluded here. The check applies to Builder-authored reading copy: at
-    // 11px Korean text is genuinely hard to read.
+    // Readability floor. The JU Brand System sets its uppercase mono labels
+    // (.chip, .label, .rail-*, .foot, .band-num and the .detail-section h2
+    // headings) to 11px, matching the approved artifact, so those are excluded
+    // here. The check applies to Builder-authored reading copy: at 11px Korean
+    // body text is genuinely hard to read.
     let tinyText = 0;
     for (const p of document.querySelectorAll('p, li, span, a, h1, h2, h3, td, small')) {
       if ((p.textContent ?? '').trim().length < 4) continue;
       if (p.closest('.status, .tag, .kbd, .brand, .appicon')) continue;
+      if (p.closest('.chip, .label, .rail-item, .rail-foot, .foot, .band-num')) continue;
+      if (p.closest('.detail-section h2')) continue;
       const size = parseFloat(getComputedStyle(p).fontSize);
       if (size > 0 && size < 12) tinyText++;
     }
