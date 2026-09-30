@@ -219,6 +219,30 @@ a { color: inherit; text-decoration: none; }
     radial-gradient(50% 45% at 30% 70%, rgba(141, 246, 220, 0.05), transparent 72%);
 }
 
+/* Founder portrait as a dot field.
+   Deliberately NOT a card: no frame, no background panel, no border, no fixed
+   box. The face is masked by a soft radial so its edges dissolve into the
+   field, and it sits behind the wordmark and typography rather than beside
+   them. */
+.portrait-dots {
+  position: absolute;
+  inset: 0;
+  /* soft alpha mask dissolves the rectangle into the surrounding field */
+  -webkit-mask-image: radial-gradient(58% 54% at 50% 46%, #000 42%, rgba(0, 0, 0, 0.5) 70%, transparent 92%);
+  mask-image: radial-gradient(58% 54% at 50% 46%, #000 42%, rgba(0, 0, 0, 0.5) 70%, transparent 92%);
+  opacity: 0.5;
+}
+
+.portrait-dot {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.portrait-dot.hi { background: var(--ju-paper); }
+.portrait-dot.mid { background: var(--ju-paper); }
+.portrait-dot.lo { background: var(--ju-muted); }
+
 .signal-note {
   position: absolute;
   bottom: 6px; left: 0;

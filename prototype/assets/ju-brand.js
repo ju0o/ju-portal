@@ -75,6 +75,37 @@
   window.addEventListener('resize', onScroll);
   syncRail();
 
+  // ── founder portrait: derived dot field ─────────────────
+  // The data is luminance-sampled dot geometry, not image bytes. It is loaded
+  // as a separate JSON so the page never carries any raster of the source.
+  var portraitHost = document.querySelector('[data-founder-dots]');
+  if (portraitHost) {
+    fetch('assets/founder-signal.json')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var frag = document.createDocumentFragment();
+        for (var i = 0; i < data.dots.length; i++) {
+          var d = data.dots[i];
+          var el = document.createElement('i');
+          el.className = 'portrait-dot ' + d.t;
+          el.style.left = ((d.x + 0.5) / data.cols * 100).toFixed(3) + '%';
+          el.style.top = ((d.y + 0.5) / data.rows * 100).toFixed(3) + '%';
+          el.style.width = d.r + 'px';
+          el.style.height = d.r + 'px';
+          el.style.opacity = d.a;
+          // staggered assembly, deterministic
+          el.style.animation = 'ju-draw .5s var(--ease) backwards';
+          el.style.animationDelay = ((d.x * 0.6 + d.y * 1.1) % 18) * 0.05 + 's';
+          frag.appendChild(el);
+        }
+        portraitHost.appendChild(frag);
+      })
+      .catch(function () {
+        // Missing derived data must not break the hero.
+        portraitHost.remove();
+      });
+  }
+
   // ── human dot field: a figure assembled from dots ───────
   // Deterministic layout so the shape is stable between renders.
   var field = document.querySelector('[data-dots="human"]');
