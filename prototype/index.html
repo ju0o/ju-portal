@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JU Brand System V1 — Signal</title>
+<meta name="description" content="JU Signal brand system prototype. Standalone; JuPortal production is untouched.">
+<link rel="stylesheet" href="assets/ju-brand.css">
+</head>
+<body>
+<!-- LEFT SIDE RAIL — shared component -->
+<aside class="rail" aria-label="주요 메뉴">
+  <a class="rail-mark" href="#top" aria-label="JU 홈">
+    <svg viewBox="0 0 240 160" role="img" aria-label="JU Signal Dot Mark">
+      <g fill="currentColor">
+        <circle cx="34" cy="34" r="6"/><circle cx="54" cy="34" r="6"/><circle cx="74" cy="34" r="6"/><circle cx="94" cy="34" r="6"/>
+        <circle cx="94" cy="54" r="6"/><circle cx="94" cy="74" r="6"/><circle cx="94" cy="94" r="6"/>
+        <circle cx="34" cy="114" r="6"/><circle cx="54" cy="124" r="6"/><circle cx="74" cy="124" r="6"/><circle cx="94" cy="114" r="6"/>
+        <circle cx="126" cy="34" r="6"/><circle cx="126" cy="54" r="6"/><circle cx="126" cy="74" r="6"/><circle cx="126" cy="94" r="6"/>
+        <circle cx="166" cy="114" r="6"/><circle cx="146" cy="124" r="6"/><circle cx="126" cy="114" r="6"/>
+        <circle cx="166" cy="34" r="6"/><circle cx="166" cy="54" r="6"/><circle cx="166" cy="74" r="6"/><circle cx="166" cy="94" r="6"/>
+      </g>
+      <circle cx="202" cy="80" r="11" fill="#D8FF4F"/>
+    </svg>
+  </a>
+
+  <nav class="rail-nav">
+    <a href="#top" class="rail-item is-active" data-rail="top"><span class="rail-num">01</span><span class="rail-label">HOME</span></a>
+    <a href="#brand" class="rail-item" data-rail="brand"><span class="rail-num">02</span><span class="rail-label">BRAND</span></a>
+    <a href="#story" class="rail-item" data-rail="story"><span class="rail-num">03</span><span class="rail-label">HUMAN → AI</span></a>
+    <a href="#products" class="rail-item" data-rail="products"><span class="rail-num">04</span><span class="rail-label">PRODUCTS</span></a>
+    <a href="#join" class="rail-item" data-rail="join"><span class="rail-num">05</span><span class="rail-label">JOIN</span></a>
+  </nav>
+
+  <!-- vertical progress indicator -->
+  <div class="rail-progress" aria-hidden="true"><span class="rail-progress-fill" data-progress></span></div>
+
+  <p class="rail-foot">HUMAN × AI × TOOLS</p>
+</aside>
+
+<main class="main" id="top">
+
+  <!-- ── HERO ─────────────────────────────────────────────── -->
+  <section class="hero" data-section="top">
+    <div class="hero-copy">
+      <p class="label">JU · HUMAN × AI × TOOLS</p>
+      <h1 class="hero-title">
+        <span>비개발자의 생각이 말이 되고,</span>
+        <span>말이 AI의 작업이 되고,</span>
+        <span>그 결과가 다시 사람이 이해할 수 있는</span>
+        <span><em>도구가 됩니다.</em></span>
+      </h1>
+      <p class="hero-sub">생각이 흐르면, AI가 움직입니다.<br>하나씩 나타나고, 점점 형태가 됩니다.</p>
+      <div class="hero-actions">
+        <a class="btn-signal" href="#products">JU 제품 시작하기 <span aria-hidden="true">→</span></a>
+        <a class="btn-ghost" href="#story">JU란 무엇인가요</a>
+      </div>
+    </div>
+
+    <!-- pixel / dot founder portrait + signal field. Never a profile card:
+         the face is sampled to a dot field that dissolves into the field. -->
+    <div class="hero-signal" aria-hidden="true">
+      <div class="signal-field" data-portrait>
+        <div class="portrait-dots" data-founder-dots></div>
+      </div>
+      <div class="signal-word" data-assemble>JU</div>
+      <span class="signal-node signal-node-a"></span>
+      <span class="signal-node signal-node-b"></span>
+      <span class="signal-node signal-node-c"></span>
+    </div>
+  </section>
+
+  <!-- ── 01 BRAND VALUE ──────────────────────────────────── -->
+  <section class="band" id="brand" data-section="brand">
+    <div class="band-index"><span class="band-num">01</span><span class="band-label">BRAND VALUE</span></div>
+    <div class="band-body">
+      <h2 class="band-title">누구나,<br>자신의 아이디어를<br>현실로 만들 수 있는 시대.</h2>
+      <div class="band-rule"></div>
+      <div class="band-cols">
+        <p class="band-text">비개발자도 할 수 있습니다.<br>JU는 생각하는 모든 사람을 위해<br>새로운 창작의 방식을 만듭니다.</p>
+        <ul class="band-list">
+          <li>아이디어</li>
+          <li>콘텐츠</li>
+          <li>도구</li>
+          <li>다시 사람</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 02 HUMAN → AI ────────────────────────────────────── -->
+  <section class="band" id="story" data-section="story">
+    <div class="band-index"><span class="band-num">02</span><span class="band-label">HUMAN → AI</span></div>
+    <div class="band-body">
+      <div class="beat" data-beat>
+        <h2 class="band-title beat-title">당신의 생각을,<br>그냥 말해주세요.</h2>
+        <div class="beat-visual beat-visual-human"><div class="dots" data-dots="human"></div></div>
+        <p class="band-text">사람의 신호가 시작됩니다.</p>
+      </div>
+
+      <div class="beat" data-beat>
+        <h2 class="band-title beat-title">AI가 당신의 생각을<br>작업으로 바꿉니다.</h2>
+        <div class="beat-visual beat-visual-ai">
+          <div class="prompt-box"><span class="prompt-text">새로운 도구를 만들어줘</span><span class="signal-node signal-node-d"></span></div>
+          <div class="states">
+            <span class="state"><i class="state-dot"></i>Planning</span>
+            <span class="state"><i class="state-dot"></i>Generating</span>
+            <span class="state"><i class="state-dot"></i>Building</span>
+            <span class="state"><i class="state-dot"></i>Testing</span>
+          </div>
+        </div>
+        <p class="band-text">신호가 작업으로 이동합니다.</p>
+      </div>
+
+      <div class="beat" data-beat>
+        <h2 class="band-title beat-title">그리고,<br>당신이 이해할 수 있는<br>도구가 완성됩니다.</h2>
+        <div class="beat-visual beat-visual-tool">
+          <div class="tool-frame" data-resolve>
+            <span class="tool-bar"></span>
+            <span class="tool-line"></span>
+            <span class="tool-line tool-line-short"></span>
+            <span class="tool-line"></span>
+          </div>
+        </div>
+        <p class="band-text">작업이 사람이 읽는 형태로 해결됩니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 03 PRODUCTS ───────────────────────────────────────── -->
+  <section class="band" id="products" data-section="products">
+    <div class="band-index"><span class="band-num">03</span><span class="band-label">PRODUCTS</span></div>
+    <div class="band-body">
+      <h2 class="band-title">그리고,<br>당신이 이해할 수 있는<br>도구가 완성됩니다.</h2>
+      <div class="band-rule"></div>
+      <div class="tiles">
+        <!-- Each tile links to its own VERIFIED live destination, verified
+             2026-10-01: 200 on https://ju-portal-one.vercel.app/,
+             https://ju0o.github.io/JuQode/, https://github.com/ju0o/jutell.
+             The npm website returns 403 to automated checks, so the repo is
+             used for JuTell rather than an unverified package page. -->
+        <a class="tile" href="https://ju-portal-one.vercel.app/" target="_blank" rel="noopener noreferrer">
+          <span class="tile-signal">
+            <svg viewBox="0 0 240 160" aria-hidden="true"><g fill="currentColor">
+              <circle cx="34" cy="34" r="6"/><circle cx="54" cy="34" r="6"/><circle cx="74" cy="34" r="6"/><circle cx="94" cy="34" r="6"/>
+              <circle cx="94" cy="54" r="6"/><circle cx="94" cy="74" r="6"/><circle cx="94" cy="94" r="6"/>
+              <circle cx="34" cy="114" r="6"/><circle cx="54" cy="124" r="6"/><circle cx="74" cy="124" r="6"/><circle cx="94" cy="114" r="6"/>
+              <circle cx="126" cy="34" r="6"/><circle cx="126" cy="54" r="6"/><circle cx="126" cy="74" r="6"/><circle cx="126" cy="94" r="6"/>
+              <circle cx="166" cy="114" r="6"/><circle cx="146" cy="124" r="6"/><circle cx="126" cy="114" r="6"/>
+              <circle cx="166" cy="34" r="6"/><circle cx="166" cy="54" r="6"/><circle cx="166" cy="74" r="6"/><circle cx="166" cy="94" r="6"/>
+            </g><circle cx="202" cy="80" r="11" fill="#D8FF4F"/></svg>
+          </span>
+          <h3 class="tile-name">JuPortal</h3>
+          <p class="tile-purpose">JU 제품의 홈. 신호가 도구가 되는 곳.</p>
+          <p class="tile-meta">WEB · 2026</p>
+          <span class="tile-cta">열어보기 <span aria-hidden="true">→</span></span>
+        </a>
+
+        <a class="tile" href="https://ju0o.github.io/JuQode/" target="_blank" rel="noopener noreferrer">
+          <span class="tile-signal">
+            <svg viewBox="0 0 240 160" aria-hidden="true"><g fill="currentColor">
+              <circle cx="34" cy="34" r="6"/><circle cx="54" cy="34" r="6"/><circle cx="74" cy="34" r="6"/><circle cx="94" cy="34" r="6"/>
+              <circle cx="94" cy="54" r="6"/><circle cx="94" cy="74" r="6"/><circle cx="94" cy="94" r="6"/>
+              <circle cx="34" cy="114" r="6"/><circle cx="54" cy="124" r="6"/><circle cx="74" cy="124" r="6"/><circle cx="94" cy="114" r="6"/>
+              <circle cx="126" cy="34" r="6"/><circle cx="126" cy="54" r="6"/><circle cx="126" cy="74" r="6"/><circle cx="126" cy="94" r="6"/>
+              <circle cx="166" cy="114" r="6"/><circle cx="146" cy="124" r="6"/><circle cx="126" cy="114" r="6"/>
+              <circle cx="166" cy="34" r="6"/><circle cx="166" cy="54" r="6"/><circle cx="166" cy="74" r="6"/><circle cx="166" cy="94" r="6"/>
+            </g><circle cx="202" cy="80" r="11" fill="#D8FF4F"/>
+            <!-- code motif -->
+            <g fill="none" stroke="#8DF6DC" stroke-width="4" stroke-linecap="square">
+              <path d="M30 66 L14 78 L30 90"/><path d="M58 66 L74 78 L58 90"/>
+            </g></svg>
+          </span>
+          <h3 class="tile-name">JuQode</h3>
+          <p class="tile-purpose">말로 앱을 만들고, 바뀐 코드를 읽습니다.</p>
+          <p class="tile-meta">APP · 0.1.0</p>
+          <span class="tile-cta">열어보기 <span aria-hidden="true">→</span></span>
+        </a>
+
+        <a class="tile" href="https://github.com/ju0o/jutell" target="_blank" rel="noopener noreferrer">
+          <span class="tile-signal">
+            <svg viewBox="0 0 240 160" aria-hidden="true"><g fill="currentColor">
+              <circle cx="34" cy="34" r="6"/><circle cx="54" cy="34" r="6"/><circle cx="74" cy="34" r="6"/><circle cx="94" cy="34" r="6"/>
+              <circle cx="94" cy="54" r="6"/><circle cx="94" cy="74" r="6"/><circle cx="94" cy="94" r="6"/>
+              <circle cx="34" cy="114" r="6"/><circle cx="54" cy="124" r="6"/><circle cx="74" cy="124" r="6"/><circle cx="94" cy="114" r="6"/>
+              <circle cx="126" cy="34" r="6"/><circle cx="126" cy="54" r="6"/><circle cx="126" cy="74" r="6"/><circle cx="126" cy="94" r="6"/>
+              <circle cx="166" cy="114" r="6"/><circle cx="146" cy="124" r="6"/><circle cx="126" cy="114" r="6"/>
+              <circle cx="166" cy="34" r="6"/><circle cx="166" cy="54" r="6"/><circle cx="166" cy="74" r="6"/><circle cx="166" cy="94" r="6"/>
+            </g><circle cx="202" cy="80" r="11" fill="#D8FF4F"/>
+            <!-- diff / message motif -->
+            <g stroke="#8DF6DC" stroke-width="4" stroke-linecap="square">
+              <path d="M28 70 H68"/><path d="M28 86 H54"/>
+            </g></svg>
+          </span>
+          <h3 class="tile-name">JuTell</h3>
+          <p class="tile-purpose">AI가 뭘 했는지 쉽게 확인합니다.</p>
+          <p class="tile-meta">CLI · 2.0.1</p>
+          <span class="tile-cta">열어보기 <span aria-hidden="true">→</span></span>
+        </a>
+      </div>
+
+      <p class="band-note">Labs는 더 가볍게 표시합니다 — 아직 제품이 아닌 실험.</p>
+      <div class="labs">
+        <span class="lab">JuDoctor</span>
+        <span class="lab">JuControler</span>
+        <span class="lab">JuMiner</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 04 EMAIL CTA ──────────────────────────────────────── -->
+  <section class="join" id="join" data-section="join">
+    <div class="band-index"><span class="band-num">04</span><span class="band-label">JOIN</span></div>
+    <h2 class="join-title">지금, JU의 다음 소식을<br>가장 먼저 받아보세요.</h2>
+    <p class="join-sub">새로운 기능,<br>제품 업데이트,<br>그리고 더 큰 가능성에 대한 소식을 전해드립니다.</p>
+    <form class="join-form" data-join-form>
+      <label class="sr-only" for="email">이메일</label>
+      <input id="email" class="join-input" type="email" placeholder="이메일을 입력해주세요" autocomplete="email" required>
+      <button class="join-btn" type="submit">알림받기 <span aria-hidden="true">→</span></button>
+    </form>
+    <p class="join-status" data-join-status role="status"></p>
+  </section>
+
+  <footer class="foot">
+    <span class="foot-mark">JU SYSTEM</span>
+    <span class="foot-line">HUMAN × AI × TOOLS</span>
+    <span class="foot-line">A MORE HUMAN WAY TO BUILD.</span>
+    <span class="foot-line foot-year">© 2026 JU</span>
+  </footer>
+</main>
+
+<script src="assets/ju-brand.js" defer></script>
+</body>
+</html>

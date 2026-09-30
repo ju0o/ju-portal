@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t d">
+<title id="t">JU Signal Dot Mark V1</title>
+<desc id="d">A dot-matrix JU mark with a lime signal node.</desc>
+<rect width="240" height="160" fill="#0B0B0A"/>
+<g fill="#F2F1EA">
+  <!-- J -->
+  <circle cx="34" cy="34" r="6"/><circle cx="54" cy="34" r="6"/><circle cx="74" cy="34" r="6"/><circle cx="94" cy="34" r="6"/>
+  <circle cx="94" cy="54" r="6"/><circle cx="94" cy="74" r="6"/><circle cx="94" cy="94" r="6"/>
+  <circle cx="34" cy="114" r="6"/><circle cx="54" cy="124" r="6"/><circle cx="74" cy="124" r="6"/><circle cx="94" cy="114" r="6"/>
+  <!-- U -->
+  <circle cx="126" cy="34" r="6"/><circle cx="126" cy="54" r="6"/><circle cx="126" cy="74" r="6"/><circle cx="126" cy="94" r="6"/>
+  <circle cx="166" cy="114" r="6"/><circle cx="146" cy="124" r="6"/><circle cx="126" cy="114" r="6"/>
+  <circle cx="166" cy="34" r="6"/><circle cx="166" cy="54" r="6"/><circle cx="166" cy="74" r="6"/><circle cx="166" cy="94" r="6"/>
+</g>
+<circle cx="202" cy="80" r="11" fill="#D8FF4F"/>
+</svg>
