@@ -3,8 +3,12 @@ import type { ProductEntry } from '../../src/registry/types';
 export default {
   slug: 'jutell',
   title: 'JuTell',
+  // Beginner-facing Korean. The English line that used to sit here leaked into the
+  // public UI on three pages and broke the beginner-readable register required by
+  // docs/DESIGN_CONTRACT.md. Copy-only change: slug, status, releases, source,
+  // version and CTA resolution are untouched.
   summary:
-    'Understand what your AI coding agent actually did. A clarify-before / verify-after layer for Codex, Claude Code and OpenCode.',
+    'AI 에이전트가 뭘 바꿨는지 쉽게 확인하고, 작업 전엔 묻고 작업 후엔 검증해요.',
   status: 'available',
   media: {
     pending: ['poster', 'overviewVideo'],
