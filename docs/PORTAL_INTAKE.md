@@ -201,13 +201,30 @@ is not blocked.
 
 ## Publish
 
-Publishing writes to the **authoritative Registry** in this repository:
+Publishing writes to the **authoritative Registry** in this repository.
 
-| section | target |
+Request value → Registry target:
+
+| `section:` in the request | Registry target |
 |---|---|
-| product | `content/products/{slug}.ts` |
-| lab | the authoritative Labs registry |
-| skill | the authoritative Skills registry |
+| `product` | `content/products/{slug}.ts` |
+| `lab` | `content/labs/index.ts` |
+| `skill` | `content/skills/index.ts` |
+
+Notes on this mapping:
+
+- **Request values are singular by design.** A request names exactly one section:
+  `product`, `lab`, or `skill`. There is no plural form, and no request may
+  create an entry in more than one section.
+- **Registry paths follow the existing repository structure.** `products/`,
+  `labs/`, and `skills/` are the directories that already exist. A product
+  becomes its own file named after its slug; `labs` and `skills` are index
+  files that their section's entries are added to.
+- **Builder must not invent a new `content/lab/` or `content/skill/`
+  directory.** The singular/plural difference between the request value and the
+  directory name is intentional. Creating a singular directory would fork the
+  Registry and break the Infra verifier, which requires
+  `content/{products,skills,labs,radar}/index.ts`.
 
 Registry and `src/registry/action.ts` are Infra-owned. Builder does not bypass
 the resolver and never invents a CTA URL. If a target cannot be verified, the
