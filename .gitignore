@@ -11,3 +11,10 @@ dist/
 Thumbs.db
 public/media/**.tmp
 evidence/
+
+# The Portal Inbox is a local staging area on E:\ (outside this repository).
+# These entries only matter if the folder is ever copied in by mistake; its
+# contents must never be committed. See docs/PORTAL_INTAKE.md
+JU_Portal_Inbox/
+incoming/
+processed/
