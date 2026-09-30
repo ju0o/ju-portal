@@ -27,15 +27,66 @@ material in a local folder, gives one instruction, Builder packages it.
 
 3. Founder says **"Portal 반영해"** (or "Portal Inbox 처리해").
 
-4. Builder reads **only** `incoming/`, prepares the Portal update on a feature
-   branch, runs the existing checks and build, pushes, and returns a Preview.
+4. Builder reads **only** `incoming/<slug>/`, creates a branch per the policy
+   below, runs the existing checks and build, pushes, and returns a Preview.
 
 5. Aside QA → Founder approval → merge / production.
 
-6. After a production release, Builder moves the folder to
+6. After a **verified production release**, Builder moves the folder to
    `processed/YYYY-MM-DD_<slug>/` and adds `RESULT.md`.
 
 Nothing merges automatically, and nothing is published without confirmation.
+
+---
+
+## Branch policy
+
+**`main` is production only.** An Inbox request is never published directly to
+`main`.
+
+One branch per intake item, always created from the latest `origin/main`:
+
+| request | branch |
+|---|---|
+| `action: add` | `portal/add-<slug>` |
+| `action: update` | `portal/update-<slug>` |
+| `action: promote` | `portal/promote-<slug>` |
+
+```
+portal/add-juminer
+portal/update-juqode
+portal/promote-judoctor
+```
+
+`feat/portal-v1-ui` was the initial UI build. It is **not** reused for Intake
+work.
+
+Sequence, in order:
+
+1. fetch, start from latest `origin/main`
+2. create the branch for that item
+3. process only `incoming/<slug>/`
+4. build media / Remotion if requested
+5. update the authoritative Registry
+6. run the existing tests and build
+7. push the branch
+8. produce a Vercel Preview
+9. hand the Preview to Aside
+10. wait for Founder approval
+11. merge to `main` **only after approval**
+12. verify Production
+13. only then move the Inbox item to `processed/`
+
+The Inbox item stays in `incoming/` until step 13. A Preview is not a release,
+and a merge is not verified until Production has been checked.
+
+### Multiple folders
+
+Each Inbox folder is processed as its **own branch**, by default. Unrelated
+products are not batched together.
+
+They are combined into one branch only when the Founder explicitly says
+**"한 번에 묶어서 반영해."**
 
 ---
 
@@ -165,7 +216,7 @@ entry stays unresolved and renders "Coming soon" — never a broken link.
 Per-request output:
 
 ```
-INTAKE_ITEM · ACTION · SECTION · FILES_USED · MEDIA_CREATED
+INTAKE_ITEM · ACTION · SECTION · BRANCH · FILES_USED · MEDIA_CREATED
 REGISTRY_CHANGED · CTA_VERIFIED · PREVIEW_URL · TESTS · BLOCKERS
 ```
 
