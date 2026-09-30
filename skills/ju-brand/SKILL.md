@@ -26,7 +26,7 @@ Make the product immediately recognizable as part of JU while keeping its own pr
 Reference:
 - `docs/brand/JU_BRAND_SYSTEM_V1.md`
 - `docs/brand/assets/JU_SIGNAL_DOT_MARK_V1.svg`
-- `docs/design/reference/JU_BRAND_CONCEPT_DARK_V1.png`
+- approved JU dark concept image supplied with the current design handoff; commit it as a repository reference before implementation if it is not already present
 
 ## Website rule
 
