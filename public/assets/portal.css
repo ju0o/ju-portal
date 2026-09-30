@@ -1,0 +1,928 @@
+/* JU Portal — design system.
+   Values extracted from the approved reference artifact
+   (docs/design/reference/JU_PORTAL_V0_PROTOTYPE.html) per DESIGN CONTRACT v1.
+
+   Accent discipline: lime is a scalpel, not a paint. It appears only in the
+   wordmark U, the hero <em>, and primary CTAs. */
+
+:root {
+  --bg: #0b0d10;
+  --panel: #12151a;
+  --panel2: #191d24;
+  --text: #f4f6f8;
+  --muted: #9aa4b2;
+  --line: #2a3039;
+  --accent: #d8ff4f;
+  --accent2: #8df6dc;
+  --danger: #ff8b7d;
+
+  --font: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
+    'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'D2Coding', monospace;
+  --page: 1200px;
+  --pad: 20px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+img,
+video {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--accent);
+  color: #111;
+}
+
+/* Every interactive control keeps a comfortable touch target. */
+.tap {
+  min-height: 44px;
+}
+
+.shell {
+  max-width: var(--page);
+  margin-inline: auto;
+  padding: 0 var(--pad) 60px;
+}
+
+main {
+  display: block;
+}
+
+/* ---------- nav (P1-5) ---------- */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(11, 13, 16, 0.92);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+
+.navin {
+  max-width: var(--page);
+  margin-inline: auto;
+  height: 72px;
+  padding-inline: var(--pad);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -1px;
+  color: var(--text);
+}
+
+/* P0-4: the U is lime. */
+.brand em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+.navlinks {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.navlinks a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.navlinks a:hover {
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.navlinks a[aria-current='page'] {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+.navlinks .ghost {
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+.kbd {
+  border: 1px solid #3b424c;
+  background: #1b2027;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+/* ---------- hero (P0-2) ---------- */
+
+.hero {
+  padding: 86px 0 56px;
+}
+
+/* P0-5: bordered pill, not bare text. */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.hero h1 {
+  font-size: clamp(44px, 8vw, 88px);
+  line-height: 0.95;
+  letter-spacing: -5px;
+  margin: 24px 0 18px;
+  max-width: 900px;
+  font-weight: 900;
+}
+
+/* P0-2: second line is lime. */
+.hero h1 em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+.hero p {
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 19px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ---------- discovery (P0-3) ---------- */
+
+.command {
+  margin-top: 34px;
+  display: flex;
+  gap: 10px;
+  max-width: 780px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 10px;
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+}
+
+.command input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  padding: 12px;
+  font: inherit;
+  font-size: 16px;
+}
+
+.command input::placeholder {
+  color: var(--muted);
+}
+
+.command button {
+  background: var(--accent);
+  color: #111;
+  border: 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 800;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.command button:hover {
+  filter: brightness(1.06);
+}
+
+.hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  max-width: 780px;
+}
+
+.hint {
+  font: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.hint:hover {
+  color: var(--text);
+  border-color: #47515f;
+}
+
+.banner {
+  margin-top: 18px;
+  border: 1px solid #31554d;
+  background: #10231f;
+  border-radius: 18px;
+  padding: 16px 18px;
+  color: #bdf7e8;
+  max-width: 780px;
+}
+
+.banner[hidden] {
+  display: none;
+}
+
+.banner .recname {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.banner a {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- sections ---------- */
+
+section {
+  padding: 34px 0;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.sectionHead h2 {
+  font-size: 26px;
+  letter-spacing: -0.6px;
+  margin: 0 0 4px;
+  font-weight: 800;
+}
+
+.sectionHead p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  max-width: 720px;
+}
+
+/* ---------- grid + cards (P1-1..3) ---------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.card {
+  background: linear-gradient(180deg, var(--panel), #101318);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 22px;
+  min-height: 230px;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.card.is-link {
+  cursor: pointer;
+}
+
+.card.is-link:hover {
+  transform: translateY(-4px);
+  border-color: #47515f;
+}
+
+.card-media {
+  position: relative;
+  margin: -22px -22px 18px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 20px 20px 0 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel2);
+}
+
+.card-media > img,
+.card-media > video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* P1-6: a media area must never read as an empty void. */
+.card-media .void {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(141, 246, 220, 0.07), transparent 70%),
+    var(--panel2);
+}
+
+.card-media .void .mark {
+  font-size: 20px;
+  font-weight: 900;
+  color: #47515f;
+  letter-spacing: -0.5px;
+}
+
+/* 12px: this is Builder-added copy, not a contract-extracted value. */
+.card-media .void small {
+  color: #697585;
+  font-size: 12px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.appicon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: #242a34;
+  font-weight: 900;
+  font-size: 18px;
+  color: var(--text);
+  flex: 0 0 auto;
+}
+
+.status {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 8px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.status.is-ready {
+  border-color: #3d5220;
+  color: var(--accent);
+}
+
+.status.is-beta {
+  border-color: #4a4326;
+  color: #e6c86a;
+}
+
+.card h3 {
+  font-size: 22px;
+  letter-spacing: -0.5px;
+  margin: 0 0 6px;
+  font-weight: 800;
+}
+
+/* The card title is a real link, so it needs a real touch target. */
+.card h3 a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.card h3 a:hover {
+  color: var(--accent);
+}
+
+.card .tagline {
+  color: var(--muted);
+  font-size: 15px;
+  margin: 0 0 12px;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.tag {
+  font-size: 11px;
+  background: #1a1f27;
+  color: #aeb8c4;
+  border: 1px solid var(--line);
+  padding: 5px 8px;
+  border-radius: 8px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 20px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--panel);
+}
+
+.btn.cta {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #111;
+  font-weight: 800;
+}
+
+.btn.cta:hover {
+  filter: brightness(1.06);
+}
+
+.btn[aria-disabled='true'],
+.btn.is-disabled {
+  cursor: not-allowed;
+  background: var(--panel2);
+  border-color: var(--line);
+  color: #697585;
+  font-weight: 600;
+}
+
+/* ---------- labs rows (P1-4) ---------- */
+
+.labrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 17px 0;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.labrow b {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.labrow small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ---------- detail / overlay (P0-6) ---------- */
+
+.heroProduct {
+  display: grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.info,
+.demo {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 18px;
+  padding: 20px;
+}
+
+.demoScreen {
+  position: relative;
+  background: #090b0e;
+  border: 1px solid #28313a;
+  border-radius: 14px;
+  padding: 14px;
+  min-height: 220px;
+  overflow: hidden;
+}
+
+.demoScreen > img,
+.demoScreen > video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.installBox {
+  margin-top: 16px;
+  background: #0a0c0f;
+  border: 1px solid var(--line);
+  padding: 13px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.installBox code {
+  color: var(--accent2);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.installBox button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.detailHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.detailHead h1 {
+  font-size: 40px;
+  letter-spacing: -1.6px;
+  margin: 10px 0 6px;
+  font-weight: 900;
+}
+
+.detailHead .tagline {
+  color: var(--muted);
+  margin: 0;
+  font-size: 16px;
+}
+
+/* Prototype sets .close to 38x38. The touch-target floor is 44px, and the
+   Founder direction requires an accessible close control, so the visual size
+   stays 38px while the hit area is padded out to 44px. */
+.close {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--panel2);
+}
+
+.detailSection {
+  margin-top: 26px;
+}
+
+.detailSection h2 {
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin: 0 0 10px;
+  font-weight: 800;
+}
+
+.ticks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ticks li {
+  display: flex;
+  gap: 9px;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.ticks li::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-top: 9px;
+  border-radius: 999px;
+  background: var(--accent2);
+}
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  counter-reset: st;
+}
+
+.steps li {
+  display: flex;
+  gap: 9px;
+  color: var(--text);
+  font-size: 15px;
+  counter-increment: st;
+}
+
+.steps li::before {
+  content: counter(st);
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.note {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 14px 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.note.is-warn {
+  border-color: #4a3a26;
+  background: #1a1409;
+  color: #e8cf9a;
+}
+
+.empty {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 20px;
+  padding: 40px 28px;
+  text-align: center;
+}
+
+.empty .mark {
+  font-size: 26px;
+  font-weight: 900;
+  color: #47515f;
+  margin-bottom: 10px;
+}
+
+.empty p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.crumb:hover {
+  color: var(--text);
+}
+
+footer {
+  margin-top: 80px;
+  padding-top: 30px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+footer b {
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -1px;
+}
+
+/* ---------- showroom overlay (P0-6, contract §6) ---------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 30;
+}
+
+.overlay.open {
+  display: flex;
+}
+
+.modal {
+  width: min(960px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: #0f1216;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 26px;
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.6);
+}
+
+.modalHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+/* Body scroll is locked while the overlay is open, so the page behind cannot
+   move under the backdrop. */
+body.is-locked {
+  overflow: hidden;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 12px 20px;
+  padding: 12px 16px;
+  clip: auto;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #111;
+  font-weight: 800;
+  display: inline-block;
+}
+
+/* ---------- responsive (contract §11) ---------- */
+
+@media (max-width: 850px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .heroProduct {
+    grid-template-columns: 1fr;
+  }
+
+  /* The prototype hides the first three nav links; there is no hamburger. */
+  .navlinks a:nth-child(-n + 3) {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .shell {
+    padding: 0 16px 60px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    padding-top: 58px;
+  }
+
+  .hero h1 {
+    letter-spacing: -3px;
+  }
+
+  .command {
+    flex-direction: column;
+  }
+
+  .navlinks .kbd {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

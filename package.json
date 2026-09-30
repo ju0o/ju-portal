@@ -5,9 +5,10 @@
   "type": "module",
   "description": "JU Portal - public showcase of JU products, skills, labs and radar. Infra-managed by Web Operations.",
   "scripts": {
-    "build": "node scripts/verify-registry.mjs && node scripts/build-static.mjs",
+    "build": "node scripts/verify-registry.mjs && node scripts/build-static.mjs && node scripts/render-pages.mjs",
     "verify": "node scripts/verify-registry.mjs",
     "verify:links": "node scripts/verify-links.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs"
   }
 }
