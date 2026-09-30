@@ -52,7 +52,7 @@ await loadEnvFile('.env');
 import { releaseHref, getPrimaryAction } from '../src/registry/action.ts';
 import { setPosterMap } from '../src/ui/components.js';
 import { renderHome, renderProducts, renderSkills, renderLabs, renderRadar, renderNotFound, discoveryIndex } from '../src/ui/pages.js';
-import { renderProductDetail, renderSkillDetail } from '../src/ui/detail.js';
+import { renderProductDetail, renderSkillDetail, renderOverlay } from '../src/ui/detail.js';
 import { readdir } from 'node:fs/promises';
 
 /**
@@ -142,9 +142,27 @@ const discoveryAttr = discoveryJson
   .replace(/</g, '&lt;')
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
-const home = renderHome({ products, skills, labs, radar, currentPath: '/' }).replace(
-  '<body>',
-  `<body data-discovery-index="${discoveryAttr}">`,
+// Product secondary targets, resolved by the Infra resolver once and reused by
+// both the deep route and the desktop overlay — so the two never drift.
+const productContext = products.map((product) => {
+  const action = getPrimaryAction(product);
+  const secondary = (product.releases ?? [])
+    .filter((r) => !r.primary)
+    .map((r) => releaseHref(r))
+    .filter((href) => href && href !== action.href);
+  return { product, secondary };
+});
+
+/** One showroom overlay per product, for the pages that list product cards. */
+function overlaysMarkup() {
+  return productContext.map(({ product, secondary }) => renderOverlay(product, { releases: secondary })).join('\n');
+}
+
+const overlays = overlaysMarkup();
+
+const home = renderHome({ products, skills, labs, radar, currentPath: '/', overlays }).replace(
+  '<body data-has-overlay="true">',
+  `<body data-has-overlay="true" data-discovery-index="${discoveryAttr}">`,
 );
 if (!home.includes('data-discovery-index=')) {
   throw new Error('[render] home page did not receive the discovery index');
@@ -162,22 +180,24 @@ try {
 } catch (e) {
   throw new Error('[render] discovery index is not parseable JSON: ' + e.message);
 }
+// The overlay must exist and be a real dialog, or P0-6 is not implemented.
+for (const { product } of productContext) {
+  if (!home.includes(`data-overlay="${product.slug}"`)) {
+    throw new Error(`[render] home page is missing the ${product.slug} showroom overlay`);
+  }
+  if (!home.includes('role="dialog"') || !home.includes('aria-modal="true"')) {
+    throw new Error('[render] showroom overlay is missing dialog semantics');
+  }
+}
 
 await page('/', home);
-await page('/products', renderProducts({ products, currentPath: '/products/' }));
+await page('/products', renderProducts({ products, currentPath: '/products/', overlays }));
 await page('/skills', renderSkills({ skills, currentPath: '/skills/' }));
 await page('/labs', renderLabs({ labs, currentPath: '/labs/' }));
 await page('/radar', renderRadar({ radar, currentPath: '/radar/' }));
 
-// Product detail routes. The secondary download targets are resolved by the
-// Infra resolver, not re-derived here.
-for (const product of products) {
-  const action = getPrimaryAction(product);
-  const secondary = (product.releases ?? [])
-    .filter((r) => !r.primary)
-    .map((r) => releaseHref(r))
-    .filter((href) => href && href !== action.href);
-
+// Real deep routes. The overlay never replaces these — a direct URL lands here.
+for (const { product, secondary } of productContext) {
   await page(
     `/products/${product.slug}`,
     renderProductDetail(product, {

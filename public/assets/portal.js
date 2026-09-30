@@ -9,6 +9,87 @@
 (function () {
   'use strict';
 
+  // ---------- showroom overlay (P0-6, contract §6) ----------
+  //
+  // Desktop only. Below 850px the contract keeps route-style detail, so a card
+  // click navigates normally and no overlay is ever shown.
+  //
+  // Accessibility contract:
+  //   - real dialog semantics already in the markup (role/aria-modal/label)
+  //   - focus moves into the dialog on open, and returns to the originating
+  //     control on close
+  //   - Escape closes
+  //   - backdrop click closes
+  //   - background is inert and body scroll is locked while open
+  //
+  // Modified clicks (ctrl/meta/shift/middle) are NOT intercepted, so
+  // "open in new tab" and the real href both keep working.
+  var DESKTOP_MIN = 850;
+  var hasOverlay = document.body.getAttribute('data-has-overlay') === 'true';
+  if (hasOverlay && window.matchMedia('(min-width: ' + DESKTOP_MIN + 'px)').matches) {
+    var lastFocused = null;
+
+    function overlayFor(slug) {
+      return document.querySelector('.overlay[data-overlay="' + slug + '"]');
+    }
+
+    function openOverlay(slug, trigger) {
+      var ov = overlayFor(slug);
+      if (!ov) return false;
+      lastFocused = trigger || document.activeElement;
+      ov.hidden = false;
+      ov.classList.add('open');
+      document.body.classList.add('is-locked');
+      // Move focus into the dialog, onto the close control.
+      var close = ov.querySelector('[data-overlay-close]');
+      if (close) close.focus();
+      return true;
+    }
+
+    function closeOverlay(ov) {
+      if (!ov || ov.hidden) return;
+      ov.hidden = true;
+      ov.classList.remove('open');
+      if (!document.querySelector('.overlay.open')) {
+        document.body.classList.remove('is-locked');
+      }
+      // Return focus to whatever opened the dialog.
+      if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
+      lastFocused = null;
+    }
+
+    function closeTopmost() {
+      var open = document.querySelector('.overlay.open');
+      if (open) closeOverlay(open);
+    }
+
+    document.querySelectorAll('[data-showroom]').forEach(function (trigger) {
+      trigger.addEventListener('click', function (e) {
+        // Respect modified clicks: they mean "open the real route".
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+        var slug = trigger.getAttribute('data-showroom');
+        if (openOverlay(slug, trigger)) {
+          e.preventDefault();
+        }
+      });
+    });
+
+    document.addEventListener('click', function (e) {
+      var ov = e.target.closest ? e.target.closest('.overlay') : null;
+      if (!ov) return;
+      if (e.target.closest('[data-overlay-close]')) {
+        closeOverlay(ov);
+        return;
+      }
+      // Backdrop click: only when the click landed on the overlay itself.
+      if (e.target === ov) closeOverlay(ov);
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeTopmost();
+    });
+  }
+
   // ---------- copy buttons ----------
   document.querySelectorAll('[data-copy]').forEach(function (btn) {
     btn.addEventListener('click', function () {

@@ -78,7 +78,15 @@ function hero() {
 </div>`;
 }
 
-/** Product card — contract §5: media, icon+status, name, one line, meta, actions. */
+/**
+ * Product card — contract §5: media, icon+status, name, one line, meta, actions.
+ *
+ * The media and title are real links with their true deep-route href, so a
+ * middle-click, right-click "open in new tab", or keyboard activation still
+ * lands on /products/{slug}. P0-6 intercepts a plain left click on desktop to
+ * open the showroom overlay instead; the href is the fallback and the contract's
+ * "never trade real routes for the modal" requirement.
+ */
 function productCard(p) {
   const action = getPrimaryAction(p);
   const href = `/products/${p.slug}/`;
@@ -86,14 +94,14 @@ function productCard(p) {
   const tags = [...new Set([...platforms.map(labelPlatform), action.version].filter(Boolean))];
 
   return `<article class="card is-link">
-  <a href="${href}" aria-label="${esc(p.title)} 자세히 보기">
+  <a href="${href}" data-showroom="${esc(p.slug)}" aria-label="${esc(p.title)} 자세히 보기">
     <div class="card-media">${mediaFrame(p)}</div>
   </a>
   <div class="top">
     <div class="appicon" aria-hidden="true">${esc(iconFor(p.title))}</div>
     <span class="status ${action.resolved ? 'is-ready' : 'is-beta'}">${action.resolved ? '바로 써보기' : '베타'}</span>
   </div>
-  <h3><a href="${href}">${esc(p.title)}</a></h3>
+  <h3><a href="${href}" data-showroom="${esc(p.slug)}">${esc(p.title)}</a></h3>
   <p class="tagline">${esc(oneLine(p.summary))}</p>
   <div class="meta">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
   <div class="actions">
@@ -132,7 +140,7 @@ function skillCard(s) {
 </article>`;
 }
 
-export function renderHome({ products, skills, labs, radar, currentPath }) {
+export function renderHome({ products, skills, labs, radar, currentPath, overlays = '' }) {
   const body = `${hero()}
 
 <section id="products">
@@ -172,10 +180,11 @@ ${
     '바이브코딩 입문자와 비개발자를 위한 JU 공식 제품 포털.',
     currentPath,
     body,
+    { overlays },
   );
 }
 
-export function renderProducts({ products, currentPath }) {
+export function renderProducts({ products, currentPath, overlays = '' }) {
   const body = `<section>
   <div class="sectionHead">
     <h2>Products</h2>
@@ -183,7 +192,7 @@ export function renderProducts({ products, currentPath }) {
   </div>
   <div class="grid">${products.map(productCard).join('')}</div>
 </section>`;
-  return layout('Products', '지금 실제로 써 볼 수 있는 JU 제품.', currentPath, body);
+  return layout('Products', '지금 실제로 써 볼 수 있는 JU 제품.', currentPath, body, { overlays });
 }
 
 export function renderLabs({ labs, currentPath }) {

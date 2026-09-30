@@ -20,7 +20,7 @@ const NAV = [
   { href: '/radar/', label: 'Radar' },
 ];
 
-export function layout(title, description, currentPath, body, { indexable = true } = {}) {
+export function layout(title, description, currentPath, body, { indexable = true, overlays = '' } = {}) {
   const isCurrent = (href) => currentPath === href || currentPath === href.slice(0, -1);
 
   // Canonical comes from Infra's canonicalOrigin() via canonicalUrl(); never from
@@ -41,6 +41,10 @@ export function layout(title, description, currentPath, body, { indexable = true
       `<a href="${n.href}"${isCurrent(n.href) ? ' aria-current="page"' : ''}>${n.label}</a>`,
   ).join('');
 
+  // The client script enables overlay behaviour only when at least one overlay
+  // is present, so pages without products ship no dialog markup at all.
+  const overlaysAttr = overlays ? ' data-has-overlay="true"' : '';
+
   return `<!doctype html>
 <html lang="ko">
 <head>
@@ -52,7 +56,7 @@ export function layout(title, description, currentPath, body, { indexable = true
 ${seo}
 <link rel="stylesheet" href="/assets/portal.css">
 </head>
-<body>
+<body${overlaysAttr}>
 <a class="sr-only skip" href="#main">본문으로 건너뛰기</a>
 <header class="nav">
   <div class="navin">
@@ -65,6 +69,7 @@ ${seo}
 ${body}
 </div>
 </main>
+${overlays}
 <footer>
   <b>JU</b>
   <span>Products · Skills · Labs · Radar</span>

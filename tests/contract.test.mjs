@@ -444,6 +444,82 @@ test('404.html declares no canonical and is not indexable', () => {
   assert.ok(html.includes('noindex'), '404 must be robots noindex');
 });
 
+// ---------- P0-6 showroom overlay ----------
+
+test('product listing pages ship an accessible showroom overlay per product', () => {
+  for (const page of ['index.html', 'products/index.html']) {
+    const html = readFileSync(join(DIST, page), 'utf8');
+
+    for (const slug of ['juqode', 'jutell']) {
+      assert.ok(
+        html.includes(`data-overlay="${slug}"`),
+        page + ' must ship a showroom overlay for ' + slug,
+      );
+    }
+
+    // Real dialog semantics, not a visual fake.
+    assert.ok(html.includes('role="dialog"'), page + ' overlay must be role="dialog"');
+    assert.ok(html.includes('aria-modal="true"'), page + ' overlay must be aria-modal');
+    assert.ok(html.includes('aria-labelledby="ov-juqode-title"'), page + ' overlay needs a labelled title');
+    assert.ok(html.includes('data-overlay-close'), page + ' overlay needs a close control');
+    assert.ok(html.includes('&times;'), page + ' close control must be visible');
+
+    // The prototype shell values (contract §6).
+    assert.ok(html.includes('min(960px, 100%)') === false, 'width lives in CSS, not inline');
+    const css = readFileSync(join(DIST, 'assets/portal.css'), 'utf8');
+    assert.ok(/width:\s*min\(960px,\s*100%\)/.test(css), 'modal must be min(960px,100%)');
+    assert.ok(/max-height:\s*90vh/.test(css), 'modal max-height must be 90vh');
+    assert.ok(/border-radius:\s*24px/.test(css), 'modal radius must be 24px');
+    assert.ok(/grid-template-columns:\s*1\.2fr\s*\.8fr/.test(css), 'showroom must be 1.2fr/.8fr');
+    assert.ok(/background:\s*rgba\(0,\s*0,\s*0,\s*0\.72\)/.test(css), 'backdrop must be rgba(0,0,0,.72)');
+    // Close control must clear the 44px touch floor.
+    const closeRule = /\.close\s*\{([^}]*)\}/.exec(css);
+    assert.ok(closeRule, '.close rule must exist');
+    assert.ok(/min-height:\s*44px/.test(closeRule[1]), 'close control must be >=44px');
+  }
+});
+
+test('overlay never replaces the real deep routes', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+
+  // Every product still has a real, navigable href on its card.
+  for (const slug of ['juqode', 'jutell']) {
+    assert.ok(
+      html.includes(`href="/products/${slug}/" data-showroom="${slug}"`),
+      'card must keep a real href alongside the overlay trigger',
+    );
+    assert.ok(
+      html.includes(`<a class="btn" href="/products/${slug}/">자세히</a>`),
+      'card must keep a visible real-route link',
+    );
+    // The overlay itself offers the deep route too.
+    assert.ok(
+      html.includes(`<a class="btn" href="/products/${slug}/">자세히 보기</a>`),
+      'overlay must offer the real deep route',
+    );
+    assert.ok(existsSync(join(DIST, 'products', slug, 'index.html')), slug + ' deep route must exist');
+  }
+});
+
+test('the overlay and the deep route share one showroom presentation', () => {
+  // Contract §6: one component may serve both; there must not be a second
+  // visual design. The same 1.2fr/.8fr heroProduct shell carries both.
+  const home = readFileSync(join(DIST, 'index.html'), 'utf8');
+  const route = readFileSync(join(DIST, 'products/juqode/index.html'), 'utf8');
+
+  for (const [name, html] of [['overlay', home], ['route', route]]) {
+    assert.ok(html.includes('class="heroProduct"'), name + ' must use the shared heroProduct shell');
+    assert.ok(html.includes('class="info"') && html.includes('class="demo"'), name + ' must be two-column');
+  }
+});
+
+test('overlay markup is not emitted on pages without product cards', () => {
+  for (const page of ['skills/index.html', 'labs/index.html', 'radar/index.html']) {
+    const html = readFileSync(join(DIST, page), 'utf8');
+    assert.ok(!html.includes('class="overlay"'), page + ' must not ship a showroom overlay');
+  }
+});
+
 // ---------- routes ----------
 
 test('every required route exists as a real file', () => {

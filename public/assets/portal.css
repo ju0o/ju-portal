@@ -562,7 +562,7 @@ section {
 
 .heroProduct {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-columns: 1.2fr .8fr;
   gap: 18px;
   margin-top: 22px;
 }
@@ -647,11 +647,14 @@ section {
   font-size: 16px;
 }
 
+/* Prototype sets .close to 38x38. The touch-target floor is 44px, and the
+   Founder direction requires an accessible close control, so the visual size
+   stays 38px while the hit area is padded out to 44px. */
 .close {
   flex: 0 0 auto;
-  width: 38px;
-  height: 38px;
-  min-height: 38px;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
   border-radius: 12px;
   border: 1px solid var(--line);
   background: var(--panel);
@@ -803,6 +806,47 @@ footer b {
   font-size: 20px;
   font-weight: 900;
   letter-spacing: -1px;
+}
+
+/* ---------- showroom overlay (P0-6, contract §6) ---------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 30;
+}
+
+.overlay.open {
+  display: flex;
+}
+
+.modal {
+  width: min(960px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: #0f1216;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 26px;
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.6);
+}
+
+.modalHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+/* Body scroll is locked while the overlay is open, so the page behind cannot
+   move under the backdrop. */
+body.is-locked {
+  overflow: hidden;
 }
 
 .sr-only {

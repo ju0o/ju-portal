@@ -30,23 +30,12 @@ function platformTags(entry) {
  * documentation. The two-column 1.2fr/0.8fr showroom shell is shared by the
  * desktop overlay and this deep route, so the real URL is never traded away.
  */
-export function renderProductDetail(entry, { releases, currentPath }) {
+export function showroom(entry, { releases = [] } = {}) {
   const action = getPrimaryAction(entry);
   const others = (releases ?? []).filter((r) => r !== action.href);
   const tags = [...platformTags(entry), action.version].filter(Boolean);
 
-  const body = `<section>
-  ${breadcrumb('/products/', 'Products')}
-
-  <div class="detailHead">
-    <div>
-      <span class="eyebrow">JU PRODUCT</span>
-      <h1>${esc(entry.title)}</h1>
-      <p class="tagline">${esc(entry.summary)}</p>
-    </div>
-  </div>
-
-  <div class="heroProduct">
+  return `<div class="heroProduct">
     <div class="info">
       <div class="detailSection" style="margin-top:0">
         <h2>이걸로 무엇을 할 수 있나요</h2>
@@ -80,7 +69,29 @@ export function renderProductDetail(entry, { releases, currentPath }) {
       </div>
       ${mediaFrame(entry, { controls: true })}
     </div>
+  </div>`;
+}
+
+/** Identity block. Shared heading for the route page and the overlay. */
+function identity(entry) {
+  return `<div>
+      <span class="eyebrow">JU PRODUCT</span>
+      <h1>${esc(entry.title)}</h1>
+      <p class="tagline">${esc(entry.summary)}</p>
+    </div>`;
+}
+
+export function renderProductDetail(entry, { releases, currentPath }) {
+  const action = getPrimaryAction(entry);
+
+  const body = `<section>
+  ${breadcrumb('/products/', 'Products')}
+
+  <div class="detailHead">
+    ${identity(entry)}
   </div>
+
+  ${showroom(entry, { releases })}
 
   ${
     entry.unavailableReason
@@ -102,6 +113,39 @@ export function renderProductDetail(entry, { releases, currentPath }) {
 </section>`;
 
   return layout(entry.title, entry.summary, currentPath, body);
+}
+
+/**
+ * Desktop showroom overlay (P0-6, contract §6).
+ *
+ * A real accessible dialog, not a visual fake: role=dialog, aria-modal, a
+ * labelled title, a >=44px close control, Escape and backdrop dismissal, and
+ * focus that moves in on open and returns to the originating control on close.
+ * Background interaction is blocked by the backdrop plus a body scroll lock.
+ *
+ * The content is the SAME showroom() block the deep route renders, so the
+ * visual language is identical in both contexts and there is no second design.
+ * The deep route is always reachable: a visible "자세히 보기" link sits in the
+ * dialog, and a card opened via keyboard or middle-click keeps its real href.
+ */
+export function renderOverlay(entry, { releases = [] } = {}) {
+  const id = `ov-${entry.slug}`;
+  return `<div class="overlay" id="${id}" data-overlay="${esc(entry.slug)}" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="${id}-title">
+    <div class="modalHead">
+      <div>
+        <span class="eyebrow">JU PRODUCT</span>
+        <h1 id="${id}-title">${esc(entry.title)}</h1>
+        <p class="tagline">${esc(entry.summary)}</p>
+      </div>
+      <button class="close" type="button" data-overlay-close aria-label="${esc(entry.title)} 닫기">&times;</button>
+    </div>
+    ${showroom(entry, { releases })}
+    <div class="detailSection">
+      <a class="btn" href="/products/${esc(entry.slug)}/">자세히 보기</a>
+    </div>
+  </div>
+</div>`;
 }
 
 /** Capabilities derived from the Registry, so no copy is invented here. */
