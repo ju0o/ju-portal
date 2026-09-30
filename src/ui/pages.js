@@ -17,6 +17,51 @@ function oneLine(text) {
 
 const STATUS = { available: '바로 써보기', beta: 'Beta', planned: '예정' };
 
+/** Hint chips — the Discovery entry points (DESIGN_CONTRACT §4). */
+const HINTS = [
+  'AI가 뭘 수정했는지 보고 싶어',
+  '말로 앱 만들고 싶어',
+  '코드를 쉽게 이해하고 싶어',
+  'Agent에게 능력 추가',
+  '새로운 AI 도구 찾기',
+];
+
+/**
+ * Discovery index — Registry-driven, client-side only.
+ *
+ * No backend, no LLM, no new infrastructure. Each entry carries the words the
+ * real product answers to, so a submitted intent resolves to a real Portal
+ * route. Restored after the brand rewrite; the original behaviour is preserved
+ * and only its visual treatment is now JU Signal.
+ */
+export function discoveryIndex(products, radar) {
+  const intentKeywords = {
+    juqode: '말로 앱 만들고 싶어 앱 만들기 만들기 화면 에이전트 실행 브라우저',
+    jutell: '코드를 쉽게 이해하고 싶어 ai가 뭘 했는지 확인 리포트 정리 요약 기록',
+  };
+
+  return [
+    ...products.map((p) => ({
+      href: `/products/${p.slug}/`,
+      name: p.title,
+      tagline: oneLine(p.summary),
+      haystack: [p.title, p.summary, intentKeywords[p.slug] ?? ''].join(' ').toLowerCase(),
+    })),
+    {
+      href: '/skills/',
+      name: 'Skills',
+      tagline: 'Agent에게 새로운 능력을 붙여요.',
+      haystack: 'skills agent에게 능력 추가 스킬 기능 확장 커스텀 붙이기',
+    },
+    ...radar.map((r) => ({
+      href: '/radar/',
+      name: r.title,
+      tagline: '새로운 AI 도구를 찾는 곳.',
+      haystack: 'radar 새로운 ai 도구 찾기 새 도구 발견 탐색',
+    })),
+  ];
+}
+
 /**
  * Product tile. Media leads, then the product's own Signal icon, its real
  * status from the resolver, a one-line outcome, real meta tags, and the real
@@ -65,7 +110,11 @@ function skillTile(s) {
 </article>`;
 }
 
-/** Hero: founder dot texture on the right, intent and actions on the left. */
+/**
+ * Hero: founder dot texture on the right, intent and actions on the left.
+ * Discovery (DESIGN_CONTRACT §4) sits between the headline and the actions, so
+ * the hierarchy stays headline -> interaction -> products.
+ */
 function hero() {
   return `<section class="hero" data-section="top">
   <div class="hero-copy">
@@ -77,6 +126,14 @@ function hero() {
       <span><em>도구가 됩니다.</em></span>
     </h1>
     <p class="hero-sub">생각이 흐르면, AI가 움직입니다.<br>하나씩 나타나고, 점점 형태가 됩니다.</p>
+    <form class="command" role="search" data-discovery>
+      <input type="search" name="q" placeholder="지금 뭘 하고 싶나요?" aria-label="지금 뭘 하고 싶나요?" autocomplete="off">
+      <button type="submit" class="cta">찾아보기</button>
+    </form>
+    <div class="hints">
+      ${HINTS.map((h) => `<button class="hint" type="button" data-hint="${esc(h)}">${esc(h)}</button>`).join('')}
+    </div>
+    <div class="banner" data-banner role="status" hidden></div>
     <div class="hero-actions">
       <a class="btn cta" href="/products/">JU 제품 시작하기 <span aria-hidden="true">→</span></a>
       <a class="btn" href="/skills/">Skills 보기</a>

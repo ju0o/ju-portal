@@ -75,6 +75,92 @@
     }, 1200);
   }
 
+  // ---------- discovery (DESIGN_CONTRACT §4) ----------
+  // Registry-driven keyword matching over a build-time dataset. Client-side
+  // only: no backend, no LLM, no network request.
+  var INDEX_RAW = document.body.getAttribute('data-discovery-index');
+  var form = document.querySelector('[data-discovery]');
+  var banner = document.querySelector('[data-banner]');
+  if (INDEX_RAW && form && banner) {
+    var INDEX;
+    try {
+      INDEX = JSON.parse(INDEX_RAW);
+    } catch (e) {
+      INDEX = null;
+    }
+    if (INDEX) {
+      var input = form.querySelector('input');
+
+      /** Exact title hits outweigh substring hits. */
+      function score(entry, query) {
+        var q = query.trim().toLowerCase();
+        if (!q) return 0;
+        var hay = (entry.haystack || '').toLowerCase();
+        var name = (entry.name || '').toLowerCase();
+        var total = 0;
+        var terms = q.split(/\s+/).filter(Boolean);
+        for (var i = 0; i < terms.length; i++) {
+          var t = terms[i];
+          if (!t) continue;
+          if (name.indexOf(t) !== -1) total += 12;
+          else if (hay.indexOf(t) !== -1) total += 4;
+        }
+        return total;
+      }
+
+      function find(query) {
+        var best = null;
+        var bestScore = 0;
+        for (var i = 0; i < INDEX.length; i++) {
+          var s = score(INDEX[i], query);
+          if (s > bestScore) {
+            bestScore = s;
+            best = INDEX[i];
+          }
+        }
+        return best;
+      }
+
+      function escHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      function renderHit(query) {
+        if (!query.trim()) {
+          banner.hidden = true;
+          banner.innerHTML = '';
+          return;
+        }
+        var hit = find(query);
+        banner.hidden = false;
+        if (!hit) {
+          banner.innerHTML =
+            '<span>추천 없음</span><br>문제나 필요를 다른 표현으로 입력해보세요.';
+          return;
+        }
+        banner.innerHTML =
+          '추천: <span class="recname">' + escHtml(hit.name) + '</span> — ' +
+          escHtml(hit.tagline) + ' <a href="' + escHtml(hit.href) + '">열어보기</a>';
+      }
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        renderHit(input.value);
+      });
+      input.addEventListener('input', function () {
+        renderHit(input.value);
+      });
+      document.querySelectorAll('[data-hint]').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+          input.value = chip.getAttribute('data-hint') || '';
+          renderHit(input.value);
+        });
+      });
+    }
+  }
+
   // ---------- side rail: active section + progress ----------
   var sections = Array.prototype.slice.call(document.querySelectorAll('[data-section]'));
   var railItems = Array.prototype.slice.call(document.querySelectorAll('[data-rail]'));
@@ -83,9 +169,15 @@
   function syncRail() {
     var y = window.scrollY;
     var vh = window.innerHeight;
-    var current = sections.length ? sections[0].id : null;
+    // Sections are identified by data-section, not id: most Portal pages carry
+    // data-section without a matching id, so reading .id alone would leave the
+    // rail with no active item.
+    var current = sections.length
+      ? sections[0].getAttribute('data-section') || sections[0].id
+      : null;
     for (var i = 0; i < sections.length; i++) {
-      if (sections[i].offsetTop - vh * 0.35 <= y) current = sections[i].id;
+      var s = sections[i];
+      if (s.offsetTop - vh * 0.35 <= y) current = s.getAttribute('data-section') || s.id;
     }
     railItems.forEach(function (item) {
       var on = item.getAttribute('data-rail') === current;

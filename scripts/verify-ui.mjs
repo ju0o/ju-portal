@@ -253,7 +253,9 @@ const radarLink = await radarPage.evaluate(() => {
 });
 await radarPage.close();
 
-// ---- discovery (P0-3): input, chips, and a real recommendation ----
+// ---- discovery (DESIGN_CONTRACT §4): a hard regression gate ----
+// Previously this returned {found:false} and let the run pass. Discovery is a
+// shipped Portal feature, so its absence must now fail loudly.
 const discPage = await context.newPage();
 await discPage.setViewportSize({ width: 1440, height: 900 });
 await discPage.goto(`${ORIGIN}/`, { waitUntil: 'load' });
@@ -262,12 +264,17 @@ const discovery = await discPage.evaluate(async () => {
   const input = form?.querySelector('input');
   const banner = document.querySelector('[data-banner]');
   const chips = Array.from(document.querySelectorAll('[data-hint]'));
-  if (!form || !input || !banner) return { found: false };
+  const raw = document.body.getAttribute('data-discovery-index');
+  if (!form || !input || !banner || !raw) {
+    return { found: false, hasIndex: Boolean(raw) };
+  }
+  // A known intent must produce a visible recommendation with a real route.
   input.value = '말로 앱 만들고 싶어';
   form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-  await new Promise((r) => setTimeout(r, 120));
+  await new Promise((r) => setTimeout(r, 150));
   return {
     found: true,
+    hasIndex: true,
     hasInput: true,
     chipCount: chips.length,
     bannerVisible: !banner.hidden,
@@ -275,8 +282,57 @@ const discovery = await discPage.evaluate(async () => {
     bannerLink: banner.querySelector('a')?.getAttribute('href') ?? null,
   };
 });
+// Hard gate: a missing or broken Discovery surface fails the run.
+const discoveryFailures = [];
+if (!discovery.found) discoveryFailures.push('discovery markup missing (form/index/banner)');
+if (discovery.found && !discovery.hasIndex) discoveryFailures.push('data-discovery-index missing');
+if (discovery.found && discovery.chipCount < 3) {
+  discoveryFailures.push(`expected >=3 hint chips, found ${discovery.chipCount}`);
+}
+if (discovery.found && !discovery.bannerVisible) {
+  discoveryFailures.push('submitting a known intent did not reveal the recommendation');
+}
+if (discovery.found && !discovery.bannerLink) {
+  discoveryFailures.push('recommendation produced no link');
+}
+if (discovery.found && discovery.bannerLink && !/^\/(products\/|skills\/|radar\/)/.test(discovery.bannerLink)) {
+  discoveryFailures.push(`recommendation href is not a real Portal route: ${discovery.bannerLink}`);
+}
 await discPage.screenshot({ path: join(ROOT, 'evidence', 'discovery.png') });
 await discPage.close();
+
+// ---- side rail: each top-level route keeps exactly one correct active item ----
+const railChecks = [];
+for (const [route, expect] of [
+  ['/', 'top'],
+  ['/products/', 'products'],
+  ['/skills/', 'skills'],
+  ['/labs/', 'labs'],
+  ['/radar/', 'radar'],
+]) {
+  const rp = await context.newPage();
+  await rp.setViewportSize({ width: 1440, height: 900 });
+  await rp.goto(`${ORIGIN}${route}`, { waitUntil: 'load' });
+  await rp.waitForTimeout(400);
+  const state = await rp.evaluate(() => {
+    const items = Array.from(document.querySelectorAll('.rail-item'));
+    return {
+      total: items.length,
+      active: items.filter((i) => i.classList.contains('is-active')).length,
+      ariaCurrent: items.filter((i) => i.getAttribute('aria-current') === 'page').length,
+      activeRail: items.find((i) => i.classList.contains('is-active'))?.getAttribute('data-rail') ?? null,
+    };
+  });
+  const ok = state.active === 1 && state.ariaCurrent === 1 && state.activeRail === expect;
+  railChecks.push({ route, expect, ...state, ok });
+  await rp.close();
+}
+const railFailures = railChecks
+  .filter((r) => !r.ok)
+  .map(
+    (r) =>
+      `${r.route}: expected exactly 1 active rail item for "${r.expect}", got active=${r.active} aria-current=${r.ariaCurrent} rail=${r.activeRail}`,
+  );
 
 // ---- hero token checks (P0-1..5) ----
 const heroPage = await context.newPage();
@@ -304,6 +360,21 @@ const heroState = await heroPage.evaluate(() => {
 });
 await heroPage.close();
 
+const layoutFailures = results
+  .filter((r) => r.overflow || r.overlaps || r.mediaOverflow || r.tinyText || r.deadLinks || r.status !== 200)
+  .map((r) => `${r.vp} ${r.route}: ` + JSON.stringify({
+    status: r.status, overflow: r.overflow, overlaps: r.overlaps,
+    mediaOverflow: r.mediaOverflow, tinyText: r.tinyText, deadLinks: r.deadLinks,
+  }));
+
+const gateFailures = [
+  ...consoleErrors.map((e) => `console error: ${e}`),
+  ...pageErrors.map((e) => `page error: ${e}`),
+  ...layoutFailures,
+  ...discoveryFailures,
+  ...railFailures,
+];
+
 console.log(JSON.stringify({
   origin: ORIGIN,
   results,
@@ -312,11 +383,21 @@ console.log(JSON.stringify({
   jutellCta,
   radarLink,
   discovery,
+  railChecks,
   heroState,
   consoleErrors,
   pageErrors,
+  gateFailures,
 }, null, 2));
 
 await context.close();
 await browser.close();
 server?.close();
+
+// A regression gate must actually fail the run, not just print a note.
+if (gateFailures.length) {
+  console.error(`\n[verify-ui] FAILED - ${gateFailures.length} gate failure(s):`);
+  for (const f of gateFailures) console.error('  FAIL ' + f);
+  process.exit(1);
+}
+console.log('\n[verify-ui] OK - all gates passed');

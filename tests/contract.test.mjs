@@ -446,6 +446,55 @@ test('404.html declares no canonical and is not indexable', () => {
 
 // ---------- P0-6 showroom overlay ----------
 
+test('Discovery entry is preserved on the Portal home', () => {
+  // DESIGN_CONTRACT §4 defines Discovery. It was lost in a redesign once, so
+  // its presence is asserted on the built output rather than left to a soft
+  // browser check.
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+
+  assert.ok(html.includes('data-discovery'), 'home must carry the discovery form');
+  assert.ok(html.includes('data-discovery-index='), 'home must carry the discovery index');
+  assert.ok(html.includes('data-banner'), 'home must carry the recommendation banner');
+
+  const chips = html.match(/data-hint="/g) ?? [];
+  assert.ok(chips.length >= 3, `expected >=3 hint chips, found ${chips.length}`);
+
+  // The index must be real, parseable JSON, and every entry must point at a
+  // real Portal route so a recommendation can never dead-link.
+  const raw = html
+    .match(/data-discovery-index="([^"]*)"/)[1]
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+  const index = JSON.parse(raw);
+  assert.ok(Array.isArray(index) && index.length >= 3, 'discovery index needs entries');
+
+  for (const entry of index) {
+    assert.ok(
+      /^\/(products\/[a-z0-9-]+\/|skills\/|radar\/)/.test(entry.href),
+      `discovery href is not a real Portal route: ${entry.href}`,
+    );
+    assert.ok(entry.name && entry.haystack, 'each discovery entry needs a name and keywords');
+  }
+});
+
+test('the side rail keeps every production section', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  for (const section of ['top', 'products', 'skills', 'labs', 'radar']) {
+    assert.ok(
+      html.includes(`class="rail-item" href=`) || html.includes(`data-rail="${section}"`),
+      'rail must expose ' + section,
+    );
+    assert.ok(html.includes(`data-rail="${section}"`), 'rail is missing data-rail=' + section);
+  }
+  // Exactly one server-rendered active item on a page that has an active section.
+  const current = html.match(/aria-current="page"/g) ?? [];
+  assert.equal(current.length, 1, 'home must render exactly one aria-current rail item');
+});
+
+// ---------- P0-6 showroom overlay ----------
+
 test('product listing pages ship an accessible showroom overlay per product', () => {
   for (const page of ['index.html', 'products/index.html']) {
     const html = readFileSync(join(DIST, page), 'utf8');

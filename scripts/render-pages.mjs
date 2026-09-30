@@ -51,7 +51,7 @@ await loadEnvFile('.env');
 
 import { releaseHref, getPrimaryAction } from '../src/registry/action.ts';
 import { setPosterMap, renderOverlay } from '../src/ui/components.js';
-import { renderHome, renderProducts, renderSkills, renderLabs, renderRadar, renderNotFound } from '../src/ui/pages.js';
+import { renderHome, renderProducts, renderSkills, renderLabs, renderRadar, renderNotFound, discoveryIndex } from '../src/ui/pages.js';
 import { renderProductDetail, renderSkillDetail } from '../src/ui/detail.js';
 import { readdir } from 'node:fs/promises';
 
@@ -146,9 +146,42 @@ function overlaysMarkup() {
 
 const overlays = overlaysMarkup();
 
-const home = renderHome({ products, skills, labs, radar, currentPath: '/', overlays });
-if (!home.includes('data-has-overlay="true"')) {
-  throw new Error('[render] home page did not receive the overlay flag');
+/**
+ * Discovery dataset (DESIGN_CONTRACT §4), injected as a <body> attribute so the
+ * client-side matcher needs no network request.
+ *
+ * The JSON is attribute-escaped: raw newlines and quotes inside an HTML
+ * attribute are collapsed or terminated by the parser, which silently breaks
+ * JSON.parse in the browser.
+ */
+const discoveryAttr = JSON.stringify(discoveryIndex(products, radar))
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
+const home = renderHome({ products, skills, labs, radar, currentPath: '/', overlays }).replace(
+  '<body data-has-overlay="true">',
+  `<body data-has-overlay="true" data-discovery-index="${discoveryAttr}">`,
+);
+if (!home.includes('data-discovery-index=')) {
+  throw new Error('[render] home page did not receive the discovery index');
+}
+if (!home.includes('data-discovery')) {
+  throw new Error('[render] home page is missing the discovery form');
+}
+// Fail the build rather than ship a discovery surface that can never match.
+try {
+  JSON.parse(
+    home
+      .match(/data-discovery-index="([^"]*)"/)[1]
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&'),
+  );
+} catch (e) {
+  throw new Error('[render] discovery index is not parseable JSON: ' + e.message);
 }
 // The overlay must exist and be a real dialog, or P0-6 is not implemented.
 for (const { product } of productContext) {
