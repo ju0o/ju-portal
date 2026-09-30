@@ -2,252 +2,258 @@ import { getPrimaryAction } from '../registry/action.ts';
 import { esc } from '../lib/dom.js';
 import { mediaFrame, primaryAction, layout } from './components.js';
 
-/** Home leads with intent, not a wall of product names. */
-export function renderHome({ products, skills, labs, currentPath }) {
-  const intents = products
-    .map(
-      (p) => `<a class="card" href="/products/${esc(p.slug)}/">
-  ${mediaFrame(p, { flat: true })}
-  <div class="card-body">
-    <p style="margin:0;font-size:1.0625rem;font-weight:700;line-height:1.4">${esc(p.summary)}</p>
-    <p style="margin:0;font-size:.875rem;color:var(--accent);font-weight:600">&rarr; ${esc(p.title)}</p>
+/** Hint chips — contract §4 baseline (3) plus the Founder's extended pool. */
+const HINTS = [
+  'AI가 뭘 수정했는지 보고 싶어',
+  '말로 앱 만들고 싶어',
+  '코드를 쉽게 이해하고 싶어',
+  'Agent에게 능력 추가',
+  '새로운 AI 도구 찾기',
+];
+
+/** One short line for a card. Never three. */
+function oneLine(text) {
+  const first = String(text ?? '').split(/[.!?。\n]/)[0].trim();
+  return first.length > 60 ? first.slice(0, 58) + '…' : first;
+}
+
+function labelPlatform(code) {
+  const map = { web: '웹', windows: 'Windows', node: '터미널', macos: 'macOS', linux: 'Linux' };
+  return map[code] ?? code;
+}
+
+function iconFor(title) {
+  return String(title ?? 'JU')
+    .replace(/^Ju/, '')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+/**
+ * Discovery index — Registry-driven only. No backend, no LLM, no invented
+ * product. Each entry carries the words the real product answers to.
+ */
+export function discoveryIndex(products, radar) {
+  const intentKeywords = {
+    juqode: '말로 앱 만들고 싶어 앱 만들기 만들기 화면 에이전트 실행 브라우저',
+    jutell: '코드를 쉽게 이해하고 싶어 ai가 뭘 했는지 확인 리포트 정리 요약 기록',
+  };
+
+  return [
+    ...products.map((p) => ({
+      href: `/products/${p.slug}/`,
+      name: p.title,
+      tagline: oneLine(p.summary),
+      haystack: [p.title, p.summary, intentKeywords[p.slug] ?? ''].join(' ').toLowerCase(),
+    })),
+    {
+      href: '/skills/',
+      name: 'Skills',
+      tagline: 'Agent에게 새로운 능력을 붙여요.',
+      haystack: 'skills agent에게 능력 추가 스킬 기능 확장 커스텀 붙이기',
+    },
+    ...radar.map((r) => ({
+      href: '/radar/',
+      name: r.title,
+      tagline: '새로운 AI 도구를 찾는 곳.',
+      haystack: 'radar 새로운 ai 도구 찾기 새 도구 발견 탐색',
+    })),
+  ];
+}
+
+/** Hero — contract §3: eyebrow pill, huge headline, lime second line. */
+function hero() {
+  return `<div class="hero">
+  <span class="eyebrow">JU PRODUCT PORTAL</span>
+  <h1>필요한 도구를 찾고,<br><em>바로 써보세요.</em></h1>
+  <p>JU는 GitHub 프로젝트 목록이 아닙니다. 제품을 이해하고, 데모하고, 다운로드하거나 바로 실행하는 공식 제품 포털입니다.</p>
+  <form class="command" role="search" data-discovery>
+    <input type="search" name="q" placeholder="지금 뭘 하고 싶나요?" aria-label="지금 뭘 하고 싶나요?" autocomplete="off">
+    <button type="submit">찾아보기</button>
+  </form>
+  <div class="hints">
+    ${HINTS.map((h) => `<button class="hint" type="button" data-hint="${esc(h)}">${esc(h)}</button>`).join('')}
   </div>
-</a>`,
-    )
-    .join('');
+  <div class="banner" data-banner role="status" hidden></div>
+</div>`;
+}
 
-  const skillCards = skills.length
-    ? skills
-        .map(
-          (s) => `<a class="card" href="/skills/${esc(s.slug)}/">
-  <div class="card-body">
-    <h3>${esc(s.title)}</h3>
-    <p>${esc(s.summary)}</p>
+/** Product card — contract §5: media, icon+status, name, one line, meta, actions. */
+function productCard(p) {
+  const action = getPrimaryAction(p);
+  const href = `/products/${p.slug}/`;
+  const platforms = (p.releases ?? []).flatMap((r) => r.platforms ?? []);
+  const tags = [...new Set([...platforms.map(labelPlatform), action.version].filter(Boolean))];
+
+  return `<article class="card is-link">
+  <a href="${href}" aria-label="${esc(p.title)} 자세히 보기">
+    <div class="card-media">${mediaFrame(p)}</div>
+  </a>
+  <div class="top">
+    <div class="appicon" aria-hidden="true">${esc(iconFor(p.title))}</div>
+    <span class="status ${action.resolved ? 'is-ready' : 'is-beta'}">${action.resolved ? '바로 써보기' : '베타'}</span>
   </div>
-</a>`,
-        )
-        .join('')
-    : '';
-
-  const body = `<div class="wrap stack-xl" style="padding-block:3rem 4rem">
-  <section class="stack" style="gap:1.5rem">
-    <p class="eyebrow" style="margin:0">JU</p>
-    <h1 class="display">하고 싶은 일이 먼저입니다. 그걸 도와줄 도구를 고르세요.</h1>
-    <p class="measure muted" style="margin:0;font-size:1.125rem">GitHub나 터미널 이름을 몰라도 됩니다. 지금 하고 싶은 말을 그대로 골라보세요. 영상으로 먼저 보고, 실제로 눌러본 다음, 설치하면 됩니다.</p>
-  </section>
-
-  <section class="section" aria-labelledby="intent">
-    <h2 class="title" id="intent">지금 이런 상황이라면</h2>
-    <div class="grid grid-3">
-      ${intents}
-      <a class="card" href="/skills/" style="justify-content:center">
-        <div class="card-body">
-          <p style="margin:0;font-size:1.0625rem;font-weight:700;line-height:1.4">Agent에게 새로운 능력을 넣고 싶어요</p>
-          <p style="margin:0">파일 하나로 붙입니다.</p>
-          <p style="margin:0;font-size:.875rem;color:var(--accent);font-weight:600">&rarr; Skills</p>
-        </div>
-      </a>
-      <a class="card" href="/radar/" style="justify-content:center">
-        <div class="card-body">
-          <p style="margin:0;font-size:1.0625rem;font-weight:700;line-height:1.4">새 AI 도구를 찾고 싶어요</p>
-          <p style="margin:0">JU가 보고 있는 것을 봅니다.</p>
-          <p style="margin:0;font-size:.875rem;color:var(--accent);font-weight:600">&rarr; Radar</p>
-        </div>
-      </a>
-    </div>
-  </section>
-
-  <section class="section" aria-labelledby="products">
-    <h2 class="title" id="products">Products</h2>
-    <p class="measure muted" style="margin:0">지금 실제로 써 볼 수 있는 제품만 둡니다.</p>
-    <div class="grid grid-3">
-      ${products
-        .map(
-          (p) => `<a class="card" href="/products/${esc(p.slug)}/">
-  ${mediaFrame(p, { flat: true })}
-  <div class="card-body">
-    <h3>${esc(p.title)}</h3>
-    <p>${esc(p.summary)}</p>
-  </div>
-</a>`,
-        )
-        .join('')}
-    </div>
-  </section>
-
-  ${
-    skills.length
-      ? `<section class="section" aria-labelledby="skills">
-  <h2 class="title" id="skills">Skills</h2>
-  <div class="grid grid-3">${skillCards}</div>
-</section>`
-      : ''
-  }
-
-  ${
-    labs.length
-      ? `<section class="section" aria-labelledby="labs">
-  <h2 class="title" id="labs">만드는 중</h2>
-  <p class="measure muted" style="margin:0">아직 실행해 볼 수 없는 제품입니다. 그래서 Products에 넣지 않았습니다.</p>
+  <h3><a href="${href}">${esc(p.title)}</a></h3>
+  <p class="tagline">${esc(oneLine(p.summary))}</p>
+  <div class="meta">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
   <div class="actions">
-    ${labs
-      .map(
-        (l) =>
-          `<a class="btn btn-ghost btn-sm" href="/labs/#${esc(l.slug)}">${esc(l.title)}</a>`,
-      )
-      .join('')}
+    ${primaryAction(p)}
+    <a class="btn" href="${href}">자세히</a>
   </div>
-</section>`
-      : ''
+</article>`;
+}
+
+/** Labs — contract §8: light rows, never Product-style cards, no install CTA. */
+function labRow(l) {
+  const state = l.status === 'beta' ? '베타' : '실험 중';
+  return `<div class="labrow" id="${esc(l.slug)}">
+  <div>
+    <b>${esc(l.title)}</b><br>
+    <small>${esc(state)} · 아직 제품으로 출시하지 않은 실험</small>
+  </div>
+  ${
+    l.source?.url
+      ? `<a class="btn" href="${esc(l.source.url)}" rel="noopener">Source &#8599;</a>`
+      : '<span class="tag">LAB</span>'
   }
 </div>`;
+}
+
+function skillCard(s) {
+  return `<article class="card is-link">
+  <div class="top">
+    <div class="appicon" aria-hidden="true">${esc(iconFor(s.title))}</div>
+    <span class="status">v${esc(s.version)}</span>
+  </div>
+  <h3><a href="/skills/${esc(s.slug)}/">${esc(s.title)}</a></h3>
+  <p class="tagline">${esc(oneLine(s.summary))}</p>
+  <div class="meta">${(s.compatibleAgents ?? []).map((a) => `<span class="tag">${esc(a)}</span>`).join('')}</div>
+  <div class="actions"><a class="btn cta" href="/skills/${esc(s.slug)}/">자세히</a></div>
+</article>`;
+}
+
+export function renderHome({ products, skills, labs, radar, currentPath }) {
+  const body = `${hero()}
+
+<section id="products">
+  <div class="sectionHead">
+    <h2>Products</h2>
+    <p>지금 실제로 써 볼 수 있는 제품.</p>
+  </div>
+  <div class="grid">${products.map(productCard).join('')}</div>
+</section>
+
+${
+  skills.length
+    ? `<section id="skills">
+  <div class="sectionHead">
+    <h2>Skills</h2>
+    <p>Agent에게 새로운 능력을 붙여요.</p>
+  </div>
+  <div class="grid">${skills.map(skillCard).join('')}</div>
+</section>`
+    : ''
+}
+
+${
+  labs.length
+    ? `<section id="labs">
+  <div class="sectionHead">
+    <h2>Labs</h2>
+    <p>완제품으로 가장하지 않는 연구·실험 공간.</p>
+  </div>
+  ${labs.map(labRow).join('')}
+</section>`
+    : ''
+}`;
 
   return layout(
-    'JU — AI 도구를 처음 보는 사람에게',
-    '바이브코딩 입문자와 비개발자를 위한 JU 제품 showcase.',
+    'JU — 필요한 도구를 찾고, 바로 써보세요',
+    '바이브코딩 입문자와 비개발자를 위한 JU 공식 제품 포털.',
     currentPath,
     body,
   );
 }
 
-/** Products catalog: only entries whose primary action resolves. */
 export function renderProducts({ products, currentPath }) {
-  const cards = products
-    .map((p) => {
-      const action = getPrimaryAction(p);
-      const cta = primaryAction(p, { size: 'sm' });
-      return `<article class="card">
-  <a class="card-media" href="/products/${esc(p.slug)}/" aria-label="${esc(p.title)} 자세히 보기">${mediaFrame(p, { flat: true })}</a>
-  <div class="card-body">
-    <span class="chip ${action.resolved ? 'chip-accent' : 'chip-warn'}">${action.resolved ? '사용 가능' : 'Beta'}</span>
-    <h3><a class="card-title-link" href="/products/${esc(p.slug)}/">${esc(p.title)}</a></h3>
-    <p>${esc(p.summary)}</p>
-    <div class="actions" style="margin-top:auto">${cta}<a class="btn btn-ghost btn-sm" href="/products/${esc(p.slug)}/">자세히</a></div>
+  const body = `<section>
+  <div class="sectionHead">
+    <h2>Products</h2>
+    <p>지금 바로 써 볼 수 있는 제품만 여기에 둡니다.</p>
   </div>
-</article>`;
-    })
-    .join('');
-
-  const body = `<div class="wrap stack-xl" style="padding-block:3rem 4rem">
-  <header class="stack" style="gap:1rem">
-    <h1 class="display">Products</h1>
-    <p class="measure muted" style="margin:0;font-size:1.125rem">지금 바로 써 볼 수 있는 제품만 여기에 둡니다.</p>
-  </header>
-  <section class="section" aria-labelledby="ready">
-    <h2 class="subtitle" id="ready">지금 써 볼 수 있어요</h2>
-    <div class="grid grid-3">${cards}</div>
-  </section>
-</div>`;
-
+  <div class="grid">${products.map(productCard).join('')}</div>
+</section>`;
   return layout('Products', '지금 실제로 써 볼 수 있는 JU 제품.', currentPath, body);
 }
 
-/** Labs: real work, deliberately no CTA. */
 export function renderLabs({ labs, currentPath }) {
-  const cards = labs
-    .map(
-      (l) => `<article class="card" id="${esc(l.slug)}">
-  <div class="card-body">
-    <span class="chip chip-warn">${l.status === 'beta' ? 'Beta' : '예정'}</span>
-    <h3>${esc(l.title)}</h3>
-    <p>${esc(l.summary)}</p>
-    ${
-      l.unavailableReason
-        ? `<p class="tiny" style="margin:0">${esc(l.unavailableReason)}</p>`
-        : ''
-    }
-    ${
-      l.source?.url
-        ? `<div class="actions"><a class="btn btn-ghost btn-sm" href="${esc(l.source.url)}" rel="noopener">Source &#8599;</a></div>`
-        : ''
-    }
+  const body = `<section>
+  <div class="sectionHead">
+    <h2>Labs</h2>
+    <p>완제품으로 가장하지 않는 연구·실험 공간. 아직 제품으로 출시하지 않았습니다.</p>
   </div>
-</article>`,
-    )
-    .join('');
-
-  const body = `<div class="wrap stack-xl" style="padding-block:3rem 4rem">
-  <header class="stack" style="gap:1rem">
-    <span class="chip chip-warn" style="width:fit-content">Beta &middot; Coming soon</span>
-    <h1 class="display">Labs</h1>
-    <p class="measure muted" style="margin:0;font-size:1.125rem">만들고 있지만 아직 실행해 볼 수 없는 제품입니다. 실제로 써 볼 수 있게 되면 Products로 옮겨갑니다.</p>
-  </header>
-  <section class="section"><div class="grid grid-3">${cards}</div></section>
-</div>`;
-
-  return layout('Labs', '만들고 있지만 아직 실행해 볼 수 없는 제품들.', currentPath, body);
+  ${
+    labs.length
+      ? labs.map(labRow).join('')
+      : '<div class="empty"><div class="mark">LAB</div><p>아직 등록된 항목이 없습니다.</p></div>'
+  }
+</section>`;
+  return layout('Labs', '만들고 있지만 아직 실행해 볼 수 없는 것들.', currentPath, body);
 }
 
-/** Skills: curated library. Empty at V0 by design, and it says so. */
 export function renderSkills({ skills, currentPath }) {
-  const cards = skills.length
-    ? skills
-        .map(
-          (s) => `<a class="card" href="/skills/${esc(s.slug)}/">
-  <div class="card-body">
-    <h3>${esc(s.title)}</h3>
-    <p>${esc(s.summary)}</p>
-    <div class="actions"><span class="chip">v${esc(s.version)}</span></div>
+  const body = `<section>
+  <div class="sectionHead">
+    <h2>Skills</h2>
+    <p>Agent에게 새로운 능력을 붙여요.</p>
   </div>
-</a>`,
-        )
-        .join('')
-    : '';
-
-  const body = `<div class="wrap stack-xl" style="padding-block:3rem 4rem">
-  <header class="stack" style="gap:1rem">
-    <h1 class="display">Skills</h1>
-    <p class="measure muted" style="margin:0;font-size:1.125rem">Agent에게 능력을 하나씩 붙이는 방법입니다.</p>
-  </header>
   ${
     skills.length
-      ? `<section class="section"><div class="grid grid-3">${cards}</div></section>`
-      : `<div class="note measure-wide">아직 등록된 스킬이 없습니다. 첫 스킬이 준비되면 여기에 표시됩니다.</div>`
+      ? `<div class="grid">${skills.map(skillCard).join('')}</div>`
+      : `<div class="empty">
+  <div class="mark">S</div>
+  <p>첫 스킬이 준비되면 여기에 표시됩니다.</p>
+</div>`
   }
-</div>`;
-
-  return layout('Skills', 'Agent에게 능력을 하나씩 붙이는 방법.', currentPath, body);
+</section>`;
+  return layout('Skills', 'Agent에게 새로운 능력을 붙여요.', currentPath, body);
 }
 
-/**
- * 404. Non-indexable by design: it declares no canonical and no og:url, and
- * carries robots noindex so an error page is never presented as canonical.
- */
-export function renderNotFound({ currentPath }) {
-  const body = `<div class="wrap stack" style="padding-block:5rem;max-width:36rem">
-  <h1 class="title">찾을 수 없는 페이지입니다</h1>
-  <p class="muted" style="margin:0">주소가 바뀌었거나 아직 공개되지 않은 페이지일 수 있습니다.</p>
-  <div><a class="btn" href="/">홈으로 가기</a></div>
-</div>`;
-  return layout('페이지를 찾을 수 없습니다', '', currentPath, body, { indexable: false });
-}
-
-/** Radar: thin link-out surface. Origin comes from RADAR_ORIGIN via the resolver. */
+/** Radar — contract §9: exactly one discovery card, one CTA. */
 export function renderRadar({ radar, currentPath }) {
-  const cards = radar
-    .map((r) => {
-      const action = getPrimaryAction(r);
-      return `<article class="card">
-  <div class="card-body">
-    <h3>${esc(r.title)}</h3>
-    <p>${esc(r.summary)}</p>
-    ${
-      action.resolved
-        ? `<div class="actions"><a class="btn btn-sm" href="${esc(action.href)}" rel="noopener" data-cta data-slug="${esc(r.slug)}" data-verb="${esc(action.verb)}" data-provider="${esc(action.provider ?? '')}">JU Radar 열기</a></div>`
-        : `<span class="btn btn-disabled btn-sm" aria-disabled="true">Coming soon</span><p class="tiny" style="margin:0">${esc(action.reason ?? '')}</p>`
-    }
+  const r = radar[0];
+  const action = r ? getPrimaryAction(r) : null;
+
+  const body = `<section>
+  <div class="sectionHead">
+    <h2>Radar</h2>
+    <p>JU가 발견하고 검증하는 새로운 AI / Agent / 개발도구</p>
   </div>
-</article>`;
-    })
-    .join('');
+  <article class="card" style="min-height:auto">
+    <div class="top">
+      <div class="appicon" aria-hidden="true">R</div>
+      <span class="status">MEDIA</span>
+    </div>
+    <h3>JU Radar</h3>
+    <p class="tagline">새로운 AI 도구를 찾는 곳.</p>
+    <div class="actions">
+      ${
+        action?.resolved
+          ? `<a class="btn cta" href="${esc(action.href)}" rel="noopener" data-cta data-slug="${esc(r.slug)}" data-verb="${esc(action.verb)}">Open Radar</a>`
+          : '<span class="btn is-disabled" aria-disabled="true">Open Radar</span>'
+      }
+    </div>
+  </article>
+</section>`;
+  return layout('Radar', '새로운 AI 도구 찾기.', currentPath, body);
+}
 
-  const body = `<div class="wrap stack-xl" style="padding-block:3rem 4rem">
-  <header class="stack" style="gap:1rem">
-    <h1 class="display">Radar</h1>
-    <p class="measure muted" style="margin:0;font-size:1.125rem">JU가 보고 있는 것을 미리 보여주는 공간입니다.</p>
-  </header>
-  <section class="section"><div class="grid grid-2">${cards}</div></section>
-</div>`;
-
-  return layout('Radar', 'JU Radar.', currentPath, body);
+/** 404 — non-indexable, no canonical. */
+export function renderNotFound({ currentPath }) {
+  const body = `<section>
+  <div class="sectionHead"><h2>찾을 수 없는 페이지입니다</h2></div>
+  <p style="color:var(--muted);margin:0 0 20px">주소가 바뀌었거나 아직 공개되지 않은 페이지일 수 있습니다.</p>
+  <a class="btn cta" href="/">홈으로 가기</a>
+</section>`;
+  return layout('페이지를 찾을 수 없습니다', '', currentPath, body, { indexable: false });
 }

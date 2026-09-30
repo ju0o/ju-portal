@@ -50,8 +50,46 @@ await loadEnvFile('.env.local');
 await loadEnvFile('.env');
 
 import { releaseHref, getPrimaryAction } from '../src/registry/action.ts';
-import { renderHome, renderProducts, renderSkills, renderLabs, renderRadar, renderNotFound } from '../src/ui/pages.js';
+import { setPosterMap } from '../src/ui/components.js';
+import { renderHome, renderProducts, renderSkills, renderLabs, renderRadar, renderNotFound, discoveryIndex } from '../src/ui/pages.js';
 import { renderProductDetail, renderSkillDetail } from '../src/ui/detail.js';
+import { readdir } from 'node:fs/promises';
+
+/**
+ * Discover poster frames that exist on disk next to a real overview video.
+ *
+ * The Registry is Infra-owned and may still declare a poster as `pending` after
+ * the asset has been produced, so the Builder reads the filesystem to avoid the
+ * empty-black-media void the design contract forbids. Nothing is invented: only
+ * files that actually exist are mapped, and the video path stays authoritative.
+ */
+async function discoverPosters() {
+  const map = {};
+  const mediaRoot = join(process.cwd(), 'public', 'media');
+  let dirs;
+  try {
+    dirs = await readdir(mediaRoot, { withFileTypes: true });
+  } catch {
+    return map;
+  }
+  for (const d of dirs) {
+    if (!d.isDirectory()) continue;
+    let files;
+    try {
+      files = await readdir(join(mediaRoot, d.name));
+    } catch {
+      continue;
+    }
+    const video = files.find((f) => /^overview\.v\d+\.mp4$/.test(f));
+    const poster = files.find((f) => /^poster\.v\d+\.png$/.test(f) || /^poster\.v\d+\.jpg$/.test(f));
+    if (video && poster) {
+      map[`/media/${d.name}/${video}`] = `/media/${d.name}/${poster}`;
+    }
+  }
+  return map;
+}
+
+setPosterMap(await discoverPosters());
 
 /**
  * Load a Registry entry by slug.
@@ -88,8 +126,44 @@ import radar from '../content/radar/index.ts';
 const products = await Promise.all(['juqode', 'jutell'].map((s) => loadEntry('products', s)));
 const skills = []; // content/skills/index.ts is intentionally empty at V0.
 
-// Section pages
-await page('/', renderHome({ products, skills, labs, currentPath: '/' }));
+// Section pages.
+//
+// The home page carries the discovery dataset (contract §4) as a data
+// attribute on <body>, so the client script needs no network request. Only
+// the home page ships it — the other surfaces have no discovery surface.
+//
+// The JSON is attribute-escaped: raw newlines and quotes inside an HTML
+// attribute are collapsed or terminated by the parser, which silently breaks
+// JSON.parse in the browser. Escaping quotes/angle brackets/ampersands is what
+// keeps the dataset intact.
+const discoveryJson = JSON.stringify(discoveryIndex(products, radar));
+const discoveryAttr = discoveryJson
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+const home = renderHome({ products, skills, labs, radar, currentPath: '/' }).replace(
+  '<body>',
+  `<body data-discovery-index="${discoveryAttr}">`,
+);
+if (!home.includes('data-discovery-index=')) {
+  throw new Error('[render] home page did not receive the discovery index');
+}
+// Fail the build rather than ship a discovery surface that can never match.
+try {
+  JSON.parse(
+    home
+      .match(/data-discovery-index="([^"]*)"/)[1]
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&'),
+  );
+} catch (e) {
+  throw new Error('[render] discovery index is not parseable JSON: ' + e.message);
+}
+
+await page('/', home);
 await page('/products', renderProducts({ products, currentPath: '/products/' }));
 await page('/skills', renderSkills({ skills, currentPath: '/skills/' }));
 await page('/labs', renderLabs({ labs, currentPath: '/labs/' }));

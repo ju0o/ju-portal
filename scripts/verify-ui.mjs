@@ -133,9 +133,14 @@ async function audit(page) {
       if (r.right > de.clientWidth + 1 || r.left < -1) mediaOverflow++;
     }
 
+    // Readability floor. DESIGN CONTRACT v1 fixes .status and .tag at 11px
+    // (PROTOTYPE_MATCH, extracted from the artifact), so those labels are
+    // excluded here. The check applies to Builder-authored reading copy: at
+    // 11px Korean text is genuinely hard to read.
     let tinyText = 0;
-    for (const p of document.querySelectorAll('p, li, span, a, h1, h2, h3, td')) {
+    for (const p of document.querySelectorAll('p, li, span, a, h1, h2, h3, td, small')) {
       if ((p.textContent ?? '').trim().length < 4) continue;
+      if (p.closest('.status, .tag, .kbd, .brand, .appicon')) continue;
       const size = parseFloat(getComputedStyle(p).fontSize);
       if (size > 0 && size < 12) tinyText++;
     }
@@ -214,10 +219,12 @@ await vpage.screenshot({ path: join(ROOT, 'evidence', 'juqode-video.png') });
 await vpage.close();
 
 // ---- CTA + action checks ----
+// Labels are the beginner register from the Design Contract (바로 써보기 /
+// 설치하기), so select on the verb data attribute rather than English text.
 const ctaPage = await context.newPage();
 await ctaPage.goto(`${ORIGIN}/products/juqode/`, { waitUntil: 'load' });
 const juqodeCta = await ctaPage.evaluate(() => {
-  const a = Array.from(document.querySelectorAll('a.btn')).find((el) => /Try/.test(el.textContent ?? ''));
+  const a = document.querySelector('a.btn.cta[data-verb]');
   return a ? { text: a.textContent.trim(), href: a.href, verb: a.getAttribute('data-verb') } : null;
 });
 await ctaPage.close();
@@ -225,12 +232,12 @@ await ctaPage.close();
 const tellPage = await context.newPage();
 await tellPage.goto(`${ORIGIN}/products/jutell/`, { waitUntil: 'load' });
 const jutellCta = await tellPage.evaluate(() => {
-  const b = document.querySelector('button[data-copy]');
-  const cmd = document.querySelector('pre.cmd');
+  const cta = document.querySelector('.btn.cta[data-copy]');
+  const box = document.querySelector('.installBox code');
   return {
-    label: b?.textContent?.trim() ?? null,
-    command: b?.getAttribute('data-copy') ?? null,
-    commandBlock: cmd?.textContent?.trim() ?? null,
+    label: cta?.textContent?.trim() ?? null,
+    command: cta?.getAttribute('data-copy') ?? null,
+    commandBlock: box?.textContent?.trim() ?? null,
   };
 });
 await tellPage.close();
@@ -238,10 +245,61 @@ await tellPage.close();
 const radarPage = await context.newPage();
 await radarPage.goto(`${ORIGIN}/radar/`, { waitUntil: 'load' });
 const radarLink = await radarPage.evaluate(() => {
-  const a = document.querySelector('a.btn[href]');
+  const a = document.querySelector('a.btn.cta[href]');
   return a ? { text: a.textContent.trim(), href: a.href } : null;
 });
 await radarPage.close();
+
+// ---- discovery (P0-3): input, chips, and a real recommendation ----
+const discPage = await context.newPage();
+await discPage.setViewportSize({ width: 1440, height: 900 });
+await discPage.goto(`${ORIGIN}/`, { waitUntil: 'load' });
+const discovery = await discPage.evaluate(async () => {
+  const form = document.querySelector('[data-discovery]');
+  const input = form?.querySelector('input');
+  const banner = document.querySelector('[data-banner]');
+  const chips = Array.from(document.querySelectorAll('[data-hint]'));
+  if (!form || !input || !banner) return { found: false };
+  input.value = '말로 앱 만들고 싶어';
+  form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  await new Promise((r) => setTimeout(r, 120));
+  return {
+    found: true,
+    hasInput: true,
+    chipCount: chips.length,
+    bannerVisible: !banner.hidden,
+    bannerText: banner.textContent.trim().slice(0, 80),
+    bannerLink: banner.querySelector('a')?.getAttribute('href') ?? null,
+  };
+});
+await discPage.screenshot({ path: join(ROOT, 'evidence', 'discovery.png') });
+await discPage.close();
+
+// ---- hero token checks (P0-1..5) ----
+const heroPage = await context.newPage();
+await heroPage.setViewportSize({ width: 1440, height: 900 });
+await heroPage.goto(`${ORIGIN}/`, { waitUntil: 'load' });
+const heroState = await heroPage.evaluate(() => {
+  const root = getComputedStyle(document.documentElement);
+  const em = document.querySelector('.hero h1 em');
+  const brandU = document.querySelector('.brand em');
+  const eyebrow = document.querySelector('.hero .eyebrow');
+  const h1 = document.querySelector('.hero h1');
+  const toggle = document.querySelector('.nav-toggle');
+  return {
+    accent: root.getPropertyValue('--accent').trim(),
+    accent2: root.getPropertyValue('--accent2').trim(),
+    emColor: em ? getComputedStyle(em).color : null,
+    brandUColor: brandU ? getComputedStyle(brandU).color : null,
+    eyebrowText: eyebrow?.textContent?.trim() ?? null,
+    eyebrowBorder: eyebrow ? getComputedStyle(eyebrow).borderTopWidth : null,
+    h1Size: h1 ? getComputedStyle(h1).fontSize : null,
+    h1Leading: h1 ? getComputedStyle(h1).lineHeight : null,
+    h1Tracking: h1 ? getComputedStyle(h1).letterSpacing : null,
+    hasHamburger: Boolean(toggle),
+  };
+});
+await heroPage.close();
 
 console.log(JSON.stringify({
   origin: ORIGIN,
@@ -250,6 +308,8 @@ console.log(JSON.stringify({
   juqodeCta,
   jutellCta,
   radarLink,
+  discovery,
+  heroState,
   consoleErrors,
   pageErrors,
 }, null, 2));
