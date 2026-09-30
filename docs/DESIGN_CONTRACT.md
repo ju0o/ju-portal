@@ -26,7 +26,7 @@
 | Section | Contents |
 |---|---|
 | Products | **JuQode** (primary = Try Web), **JuTell** (primary = Install) |
-| Labs | JuDoctor, JuControler, JuCeipt, JuMiner — no CTA |
+| Labs | JuDoctor, JuControler — no CTA |
 | Skills | first-class IA |
 | Radar | thin discovery surface |
 
@@ -278,7 +278,7 @@ Products, ghost secondary action, **no install/download**.
 Current Preview renders Labs as **cards**, which makes Labs look like Products.
 
 **PROTOTYPE_ADAPTED — content.** The artifact's entries (Project First Contact,
-JuESW) are stale. Current truth: JuDoctor, JuControler, JuCeipt, JuMiner.
+JuESW) are stale. Current truth: JuDoctor, JuControler.
 
 ---
 
@@ -377,7 +377,7 @@ beginner-facing site.
 ## 14. Functional baseline that must survive
 
 Products = JuQode + JuTell · JuQode primary = Try Web · JuTell primary = Install ·
-Labs = JuDoctor, JuControler, JuCeipt, JuMiner · Skills first-class · Radar thin ·
+Labs = JuDoctor, JuControler · Skills first-class · Radar thin ·
 Registry-driven · one authoritative `getPrimaryAction()` · versioned media · local
 media path stays **relative** · canonical from `VERCEL_PROJECT_PRODUCTION_URL` ·
 all deep routes · responsive · accessibility · no broken CTA · security headers ·
