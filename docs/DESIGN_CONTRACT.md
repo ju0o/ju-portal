@@ -1,308 +1,384 @@
-# JU Portal — DESIGN CONTRACT
+# JU Portal — DESIGN CONTRACT V1 (EVIDENCE BASED)
 
-> # ⚠ PROVISIONAL — DO NOT BUILD AGAINST THIS YET
+> **Status: V1 — EVIDENCE BASED.** Supersedes the PROVISIONAL draft (`bbad3dd`,
+> `89f937d`). The PROVISIONAL / DESIGN_REFERENCE_MISSING state is cleared because
+> the reference artifact has now been inspected directly — CSS, DOM and JS — rather
+> than inferred from prose.
 >
-> **Status: `DESIGN_REFERENCE_MISSING`.** The approved JU Portal prototype is not
-> available in the Infra environment, and a visual audit was requested that must not
-> invent a replacement visual system.
+> **Reference artifact (authoritative for visual language):**
+> [`docs/design/reference/JU_PORTAL_V0_PROTOTYPE.html`](design/reference/JU_PORTAL_V0_PROTOTYPE.html)
+> SHA-256 `ebc8438ae9ba6771a2069f3ee1ff50edab96fb99b5e8471983625ba29c093c05` · 19,622 bytes
+> Title: `JU Portal V0 — Interactive Prototype`
+> Every rule below was extracted from that file, or from a later explicit Founder
+> decision. Each item is tagged: **PROTOTYPE_MATCH** (directly in the artifact) ·
+> **PROTOTYPE_ADAPTED** (prototype concept kept, updated by a later Founder decision) ·
+> **CURRENT_ONLY** (newer than the prototype).
 >
-> **What this document actually is.** It was reconstructed from a *textual
-> description* of the prototype (a Founder chat message), not from the prototype
-> itself. Everything below that is a specific visual rule — card anatomy and its
-> ordering, section-by-section visual weighting, the media-first ordering, the
-> copy tables, the exact treatment of empty states — is **my inference, not approved
-> design.** It is recorded here so the thinking is not lost, and so it can be
-> corrected once the real reference arrives.
->
-> **What is genuinely grounded and safe to act on** (from the Founder's written
-> visual direction, which is verbatim and does not depend on the prototype):
-> the lime accent `#d8ff4f`, the mint `#8df6dc`, the hero hierarchy
-> `headline → interactive entry → products`, the `지금 뭘 하고 싶나요?` entry with
-> suggestion chips, the copy register, and the section intents for Skills / Labs /
-> Radar. Those are marked **[GROUNDED]** below.
->
-> **Action required:** the Founder must supply the approved prototype (image, URL,
-> or file). Infra will then re-issue this document as v1, marking each rule as
-> either *matches prototype* or *adjusted from prototype*. Until then the Builder
-> should treat only the **[GROUNDED]** items as a work order.
->
-> Original commit: `bbad3dd`. Superseding commit: see git log for this file.
+> **Authority split — mandatory.**
+> - **VISUAL SYSTEM** = the reference artifact + this document.
+> - **PRODUCT TRUTH** = the Registry / SSOT. The prototype's product list, statuses
+>   and CTAs are **stale and are not authoritative**. Do not restore them.
 
 ---
 
-<details>
-<summary><b>PROVISIONAL DRAFT — reconstructed from prose, not from the prototype</b></summary>
+## 0. Product truth (Registry wins over the prototype)
 
-## 0. Functional baseline that must survive the redesign
+| Section | Contents |
+|---|---|
+| Products | **JuQode** (primary = Try Web), **JuTell** (primary = Install) |
+| Labs | JuDoctor, JuControler, JuCeipt, JuMiner — no CTA |
+| Skills | first-class IA |
+| Radar | thin discovery surface |
 
-Already accepted at 14/14 technical review. The redesign must not break any of it.
-
-- Products = JuQode + JuTell **only**. JuDoctor / JuControler / JuCeipt / JuMiner = Labs.
-- JuQode primary = Try Web. JuTell primary = Install.
-- Skills is first-class IA. Radar is a thin surface.
-- Registry-driven content, one `getPrimaryAction()` implementation, versioned media.
-- Local media path stays **relative**. Canonical from `VERCEL_PROJECT_PRODUCTION_URL`.
-- Responsive at 390 / 768 / 1440. No broken CTA. Security, leakage and bundle gates hold.
+The prototype lists 6 products with different statuses. **Ignore all of it.**
 
 ---
 
-## 1. Brand tokens (exact values)
+## 1. Brand tokens — exact values from the artifact
 
-| Token | Required | Value |
+Extracted from `:root` in the reference.
+
+| Token | Value | Use |
 |---|---|---|
-| Page background | dark near-black | `#0a0d12` |
-| Panel background | rounded dark panel | `#10141c` / `#171d27` |
-| Border | subtle | `#212936` / `#2e3746` |
-| Text primary | high-contrast white | `#e9edf3` |
-| Text secondary | muted | `#a4adbd` / `#7c8698` |
-| **Accent primary** | **bright lime** | **`#d8ff4f`** |
-| **Accent secondary** | **mint** | **`#8df6dc`** |
-| Accent pressed/dim | lime shade | derive from `#d8ff4f`, not a separate hue |
+| `--bg` | `#0b0d10` | page |
+| `--panel` | `#12151a` | cards, chips, inputs |
+| `--panel2` | `#191d24` | secondary surface |
+| `--text` | `#f4f6f8` | primary text |
+| `--muted` | `#9aa4b2` | secondary text, inactive nav |
+| `--line` | `#2a3039` | borders, dividers |
+| **`--accent`** | **`#d8ff4f`** | **lime** — primary identity |
+| **`--accent2`** | **`#8df6dc`** | **mint** — terminal / demo output |
+| `--danger` | `#ff8b7d` | warnings |
 
-**The accent is the identity.** If the page reads as a generic dark SaaS dashboard
-rather than a JU product portal, the accent is wrong.
+**PROTOTYPE_MATCH.** Current Preview uses `--accent: #35d0a5` (teal), has no mint.
 
-Accent is used for: primary CTA fill, active nav pill, section eyebrows, link text,
-focus ring, and small status accents. It is **not** used for body copy or large
-backgrounds.
+### Accent discipline — what makes it read as JU
+In the artifact lime appears in exactly three roles:
 
-### Current drift
+1. `.brand span` — the **U** in the `JU` wordmark
+2. `.hero h1 em` — the second line of the headline
+3. `.command button` / `.primary` / `.actions .cta` — primary buttons
 
-The shipped implementation uses `--accent: #35d0a5` (teal) with
-`--accent-dim: #1fae88`. That is a different brand identity, not a shade
-difference. Secondary mint `#8df6dc` does not exist; the nearest token is `#6ee7c0`.
+Mint appears only in `.demoScreen .green` (terminal lines) and the recommend
+banner (`#bdf7e8` on `#10231f`).
+
+**Rule: lime is a scalpel, not a paint.** No large background fills, no body copy,
+no decorative accent fields. Overuse is the most likely way to miss the feel even
+with the correct hex values.
+
+### Wordmark — PROTOTYPE_MATCH
+`.brand{font-weight:900;font-size:28px;letter-spacing:-1px}` with the **U wrapped in
+a lime span**. Current Preview renders a plain `JU`.
 
 ---
 
-## 2. Information architecture
+## 2. Nav — PROTOTYPE_ADAPTED (Skills added)
 
 ```
-/            hero + interactive entry + visual products
-/products    JuQode, JuTell
-/skills      curated library (may be empty)
-/labs        experimental, no CTAs
-/radar       one thin discovery card
+height:72px · display:flex · align-items:center · justify-content:space-between
+border-bottom:1px solid var(--line)
+position:sticky; top:0
+background:rgba(11,13,16,.92); backdrop-filter:blur(14px); z-index:10
 ```
 
-Nav: `JU` wordmark · Products · Skills · Labs · Radar. Optionally a command
-affordance. **Source is always secondary** and never in primary nav.
+Left: wordmark. Right: `Products`, `Labs`, `Radar`, `Command ⌘K`, `GitHub ↗` (ghost).
+
+**Sticky with backdrop blur is part of the identity.** Current nav is not sticky.
+
+Links are `--muted` at rest → `--white` on `--panel` with a `--line` border on hover.
+There is **no filled active pill**.
+
+**PROTOTYPE_ADAPTED:** add `Skills` (first-class IA by later Founder decision).
+Order: `Products · Skills · Labs · Radar`.
 
 ---
 
-## 3. Hero — required hierarchy
-
-Strictly three beats, in this order and nothing between them:
+## 3. Hero — PROTOTYPE_MATCH
 
 ```
-HEADLINE  ->  INTERACTIVE ENTRY  ->  VISUAL PRODUCTS
+.hero{padding:86px 0 56px}
+.eyebrow{ inline-flex; border:1px solid var(--line); background:var(--panel);
+          padding:7px 10px; border-radius:999px; color:var(--muted); font-size:13px }
+.hero h1{ font-size:clamp(44px,8vw,88px); letter-spacing:-5px; line-height:.95;
+          margin:24px 0 18px; max-width:900px }
+.hero p{ max-width:720px; color:var(--muted); font-size:19px; line-height:1.6 }
 ```
 
-1. **Eyebrow** — `JU PRODUCT PORTAL`
-2. **Headline** — oversized, max 2 lines. Concept: `필요한 도구를 찾고, 바로 써보세요.`
-3. **Interactive entry** — see §4
-4. **Visual products** — the cards
+Eyebrow: `JU PRODUCT PORTAL · V0 PROTOTYPE` → production drops the suffix,
+`JU PRODUCT PORTAL`.
 
-No long explanatory paragraph between the headline and the interactive entry. If
-the user must read prose to understand the hero, the design fails.
+Headline: `필요한 도구를 찾고,` / `<em>바로 써보세요.</em>` — the `<em>` is lime.
 
----
+**The measured scale is the requirement: 44→88px, leading .95, tracking -5px.**
+Current h1 is materially smaller and entirely white.
 
-## 4. Interactive entry (currently missing entirely)
-
-A **large command/search-style field** is the centrepiece of the hero.
-
-- Placeholder concept: `지금 뭘 하고 싶나요?`
-- Must be a real, focusable input. It is a **discovery surface**, not decoration.
-- Matching example prompts:
-  - `AI Agent 여러 명 관리하고 싶어요`
-  - `AI가 실제로 뭘 했는지 보고 싶어요`
-  - `코드를 쉽게 이해하고 싶어요`
-  - `Agent에게 새로운 능력을 추가하고 싶어요`
-  - `새로운 AI 도구를 찾고 싶어요`
-- Below the field: **small clickable hint chips** using those same strings.
-  Tapping a chip routes to the matching Registry surface.
-
-**Constraints — no backend.** V1 matching is plain client-side keyword matching
-over the Registry. No LLM API, no new infrastructure, no server route.
-
-Measured on the current Preview: `input: 0, form: 0, role=search/combobox: 0,
-contenteditable: 0, kbd: 0`. This entire section is absent.
+Hierarchy is strict: **headline → interaction → products.** The supporting `<p>` is
+max 720px / 19px and must not push the interaction below the fold.
 
 ---
 
-## 5. Command palette (V1.1 — explicitly not blocking)
-
-`Cmd/Ctrl+K` discovery is desirable. If it delays V1, ship it as **V1.1**.
-Client-side and Registry-driven only. Same no-backend rule as §4.
-
-Not required for V1 acceptance.
-
----
-
-## 6. Product card anatomy
-
-A card is a **visual product presentation**, not a text row.
-
-Required, in order:
-
-1. Strong visual / media area (see §7)
-2. Product icon or identity mark
-3. Status chip
-4. Product name
-5. **One short outcome sentence** — one line, not three
-6. Small metadata tags (platform, version)
-7. Clear primary CTA
-8. `Details` / `자세히` secondary
-
-Current drift: no icon, no metadata tags, no status chip on the card, no in-card
-CTA on the home cards (only a text link), and the summary runs to 3 lines.
-
----
-
-## 7. Media-first
-
-Order of preference, and it is an order, not a preference list:
-
-1. real screenshot / actual UI
-2. real product or Remotion video
-3. actual interactive implementation
-4. explicitly labelled fixture/demo **only if** real media is impossible
-
-For JuQode the real overview video is visually dominant.
-
-**A media area must never render as an empty void.** Either show real content or
-show a deliberate placeholder. A black box reads as broken, and the spec forbids
-"broken Products" reading. `preload="none"` with no poster produces exactly that
-void.
-
-Media must not feel like an attachment inside a documentation page.
-
----
-
-## 8. Product detail
-
-The prototype's large modal **feel** is preserved.
-
-- Desktop: card → large overlay/modal Product Detail.
-- Mobile: full-screen or route-style detail is fine.
-- Real deep links `/products/juqode`, `/products/jutell` must keep working and be
-  shareable. **Never trade real routes for the modal.** One component may serve both.
-
-Detail order:
+## 4. Discovery entry — PROTOTYPE_MATCH
 
 ```
-A. product identity + one-line value
-B. large real media / video
-C. primary CTA
-D. 이걸로 무엇을 할 수 있나요?
-E. 2-3 real use examples
-F. simple usage / install
-G. Source (secondary)
+.command{ margin-top:34px; display:flex; gap:10px; max-width:780px;
+          background:var(--panel); border:1px solid var(--line); padding:10px;
+          border-radius:18px; box-shadow:0 20px 60px rgba(0,0,0,.28) }
+.command input{ flex:1; background:transparent; border:0; outline:0;
+                color:var(--text); padding:12px; font-size:16px }
+.command button{ background:var(--accent); color:#111; padding:12px 16px;
+                 border-radius:12px; font-weight:800 }
 ```
 
-Do not open with a technical explanation.
+Placeholder `예: AI 에이전트 여러 개 관리하고 싶어`, button label `찾아보기`.
 
-Current drift: route-only, no modal feel; detail opens with identity and a large
-media area but carries numbered sections (`1. 한눈에 보기`) which foreground a
-documentation rhythm rather than a product-showcase rhythm.
+**Hint chips** (3, verbatim):
 
----
+```
+AI가 뭘 수정했는지 보고 싶어
+PC가 왜 느린지 알고 싶어
+프로젝트 구조를 이해하고 싶어
+```
 
-## 9. Section-specific rules
+```css
+.hint{ font-size:12px; color:var(--muted); background:var(--panel);
+       border:1px solid var(--line); border-radius:999px; padding:7px 10px; cursor:pointer }
+```
 
-**Skills.** Must read as the same JU system. Meaning must be obvious to a
-beginner: `Agent에게 새로운 능력을 붙여요.` Skill card: visual/icon, name, one short
-outcome, compatible Agents, version, install/copy when actually available. V0 may
-be empty — if empty, use a **visually intentional empty state**, never an
-empty developer table.
+**Recommendation** — keyword scoring over the Registry, then a banner under the input:
 
-Current state: **this section already matches.** Oversized heading, the correct
-plain-language line, and a rounded dark empty-state panel. Preserve it.
+```css
+.banner{ margin-top:18px; border:1px solid #31554d; background:#10231f;
+         border-radius:18px; padding:16px 18px; color:#bdf7e8; display:none }
+```
 
-**Labs.** Must look deliberately experimental, never like broken Products.
-Lighter visual weight. Alpha / Beta / Lab states. State plainly:
-`아직 제품으로 출시하지 않은 실험`. **No fake Download / Install.** Source may exist
-as secondary.
+Content: `추천: {name} — {tagline} [열어보기]`.
 
-Current state: **matches.** Amber `예정` chips, `Beta · Coming soon` eyebrow, no
-fake CTAs, Source secondary. Preserve it.
+**No backend, no LLM, no new infrastructure.** Client-side Registry matching only.
 
-**Radar.** Thin. A discovery card, not a second app embedded in the Portal. One
-clear `Open Radar` CTA. No crawler or backend expansion.
+**CURRENT_ONLY:** later Founder direction lists 5 example intents where the artifact
+has 3. Use the artifact's 3 as the baseline and the 5 as the extended pool.
 
-Current state: **matches.** One card, one CTA, short explanation. Preserve it.
-
----
-
-## 10. Copy rules
-
-Audience: vibe-coding beginner, non-developer. If the user must read a wall of
-text before understanding the product, the design fails.
-
-Forbidden register — none of this may appear in public UI:
-`Registry`, `resolver`, `provider`, `distribution surface`, or any phrasing that
-describes plumbing instead of outcome.
-
-Preferred register:
-
-| Instead of | Write |
-|---|---|
-| "Distribution surface" | `바로 써보기` |
-| "Install via npm" | `설치하기` |
-| "Add capability" | `Agent에게 능력 추가` |
-| "Verify agent output" | `AI가 뭘 했는지 확인` |
-| "Discover tools" | `새로운 AI 도구 찾기` |
-
-Limits: heading short · card copy 1 sentence · paragraph ideally 2–3 lines.
-
-**Current drift:** JuTell's summary and Labs' `No downloadable build published
-yet.` are in English on a Korean beginner-facing site. Public copy must be
-consistently Korean.
+Current Preview measures `input: 0, form: 0, role=search: 0, contenteditable: 0`.
 
 ---
 
-## 11. Visual acceptance
+## 5. Product card — PROTOTYPE_ADAPTED (media area added)
 
-Capture and compare at **390 / 768 / 1440**, for each of:
+```css
+.grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px }
+.card{ background:linear-gradient(180deg,var(--panel),#101318);
+       border:1px solid var(--line); border-radius:20px; padding:22px;
+       min-height:230px; display:flex; flex-direction:column; cursor:pointer;
+       transition:.2s }
+.card:hover{ transform:translateY(-4px); border-color:#47515f }
+.appicon{ width:42px; height:42px; border-radius:14px; display:grid;
+          place-items:center; background:#242a34; font-weight:900 }
+.status{ font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+         border:1px solid var(--line); border-radius:999px; padding:6px 8px;
+         color:var(--muted) }
+.tag{ font-size:11px; background:#1a1f27; color:#aeb8c4;
+      border:1px solid var(--line); padding:5px 8px; border-radius:8px }
+.actions{ display:flex; gap:8px; margin-top:auto; padding-top:20px }
+.actions .cta{ background:var(--accent); color:#111; border-color:var(--accent); font-weight:800 }
+```
 
-| View | Route |
-|---|---|
-| A. first viewport | `/` |
-| B. Products | `/products` |
-| C. JuQode detail | `/products/juqode` |
-| D. JuTell detail | `/products/jutell` |
-| E. Skills | `/skills` |
-| F. Labs | `/labs` |
-| G. Radar | `/radar` |
+Anatomy in order: `appicon + status` → `h3` (22px) → one-line tagline → `meta` tags
+→ `actions` (lime CTA + `Details`, pinned bottom by `margin-top:auto`).
 
-Every delta is classified **P0** (fundamental visual/IA), **P1** (noticeable UX),
-or **P2** (polish).
+**Hover lift is part of the showroom feel.** Cards open detail.
 
-Two things that must NOT be true of the result: it reads as documentation, or it
-reads as a GitHub repository catalogue. The current implementation is closer to
-the second than the first on the Products surface, and closer to the first on the
-product detail surface.
+**PROTOTYPE_ADAPTED — media area.** The artifact has **no media area at all**. Later
+Founder direction supersedes it: real screenshot → real video → real implementation
+→ labelled fixture only as a last resort, with the JuQode video visually dominant.
+A media area is therefore required, but it may **never render as an empty void** —
+real content or a deliberate placeholder.
 
-### Mobile requirement (defect class)
-
-At 390×844 the first viewport must show the headline and the interactive entry.
-Navigation must not consume it. A closed menu must actually be closed —
-`aria-expanded="false"` with a visible 213px panel is a defect, not a style choice.
-
----
-
-## 12. Definition of done for the visual round
-
-- [ ] Accent is `#d8ff4f`; secondary `#8df6dc` present.
-- [ ] Hero eyebrow reads `JU PRODUCT PORTAL`; headline matches §3.
-- [ ] Interactive entry exists: real focusable input + clickable hint chips.
-- [ ] Cards match §6 anatomy, one-line outcome, real media or deliberate placeholder.
-- [ ] Product detail has the modal feel on desktop; deep routes still work.
-- [ ] Labs / Radar / Skills preserve their current (already correct) treatment.
-- [ ] Public copy is Korean, beginner register, no plumbing vocabulary.
-- [ ] At 390px the first viewport shows headline + interactive entry.
-- [ ] Functional baseline §0 still passes 14/14.
+Current Preview renders an empty dark box on the JuQode card and a broken-image
+glyph on the JuTell card.
 
 ---
 
-</details>
+## 6. Product overlay — PROTOTYPE_ADAPTED (modal feel, real routes)
+
+```css
+.overlay{ position:fixed; inset:0; background:rgba(0,0,0,.72);
+          display:none; align-items:center; justify-content:center;
+          padding:18px; z-index:30 }
+.overlay.open{ display:flex }
+.modal{ width:min(960px,100%); max-height:90vh; overflow:auto;
+        background:#0f1216; border:1px solid var(--line); border-radius:24px;
+        padding:26px; box-shadow:0 30px 100px rgba(0,0,0,.6) }
+.heroProduct{ display:grid; grid-template-columns:1.2fr .8fr; gap:18px; margin-top:22px }
+```
+
+Two-column **1.2fr info | 0.8fr demo.** Head: `eyebrow JU PRODUCT` + 40px title +
+tagline + 38×38 close.
+
+Left: `What it does` → summary → meta tags → install box (mono, with `Copy`) →
+actions (primary CTA + `GitHub / Source ↗`).
+Right: `Interactive Demo` + `DEMO MODE` chip + `.demoScreen`.
+
+```css
+.demoScreen{ background:#090b0e; border:1px solid #28313a; border-radius:14px;
+             padding:14px; min-height:220px;
+             font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px }
+.demoScreen .green{ color:var(--accent2) }  /* mint */
+.demoScreen .lime{ color:var(--accent) }   /* lime on the final line */
+```
+
+**PROTOTYPE_ADAPTED — demo panel.** The artifact renders a scripted terminal fixture.
+Later Founder direction: real implementation or real media beats fake demo. Keep the
+two-column shell, replace the fixture with the real thing and label it honestly.
+JuQode's right column shows the **real overview video**.
+
+**PROTOTYPE_ADAPTED — routes.** Deep links `/products/juqode`, `/products/jutell`
+must work and be shareable; the artifact is modal-only with no router. One component
+may serve both. **Never trade real routes for the modal.**
+
+---
+
+## 7. Command palette — PROTOTYPE_ADAPTED (V1.1, may defer)
+
+```css
+.commandPalette{ position:fixed; inset:0; background:rgba(0,0,0,.76);
+                 display:none; align-items:flex-start; justify-content:center;
+                 padding-top:14vh; z-index:40 }
+.cpbox{ width:min(680px,calc(100% - 32px)); background:#11151a;
+        border:1px solid var(--line); border-radius:18px; overflow:hidden }
+.cpbox input{ width:100%; background:#0c0f13; color:#fff; border:0;
+              border-bottom:1px solid var(--line); padding:18px; font-size:17px }
+.result{ padding:12px; border-radius:12px; cursor:pointer }
+.result:hover{ background:#1a1f26 }
+```
+
+Shortcuts **`⌘K` / `Ctrl+K`** and **`/`** open it; **`Escape`** closes. Result rows
+are name + `<small>` tagline. Empty state: `검색 결과 없음` +
+`문제/필요를 다른 표현으로 입력해보세요.`
+
+Client-side, Registry-driven. No backend, no LLM.
+
+**Later Founder direction permits deferring to V1.1.** It exists in the prototype,
+so implement it — but this is the one item that may slip without blocking launch.
+
+---
+
+## 8. Labs — PROTOTYPE_ADAPTED (rows, current content)
+
+The artifact uses **rows, not cards**:
+
+```css
+.labrow{ display:flex; align-items:center; justify-content:space-between;
+         padding:17px 0; border-bottom:1px solid var(--line) }
+.labrow small{ color:var(--muted) }
+```
+
+Subtitle: `완제품으로 가장하지 않는 연구·실험 공간`. Lighter visual weight than
+Products, ghost secondary action, **no install/download**.
+
+Current Preview renders Labs as **cards**, which makes Labs look like Products.
+
+**PROTOTYPE_ADAPTED — content.** The artifact's entries (Project First Contact,
+JuESW) are stale. Current truth: JuDoctor, JuControler, JuCeipt, JuMiner.
+
+---
+
+## 9. Radar — PROTOTYPE_MATCH
+
+One card, `min-height:auto`, `cursor:default`: appicon `R` + `MEDIA` status chip +
+`JU Radar` + description + a single lime **`Open Radar`** CTA.
+
+Exactly one discovery card, one CTA. Current Preview already matches — **preserve**.
+
+---
+
+## 10. Skills — CURRENT_ONLY
+
+**Skills does not exist in the prototype** (no Skills in its nav). It is first-class
+IA by later Founder decision.
+
+It must belong to the same visual system and read in one line for a beginner:
+`Agent에게 새로운 능력을 붙여요.` Card: visual/icon, name, one short outcome,
+compatible Agents, version, install/copy when actually available.
+
+Empty at V0 is allowed — with a **visually intentional empty state** (rounded dark
+panel), never a developer table. Current Preview's empty state already matches:
+**preserve**.
+
+---
+
+## 11. Responsive — PROTOTYPE_MATCH
+
+```css
+@media (max-width:850px){
+  .grid{ grid-template-columns:1fr 1fr }
+  .heroProduct{ grid-template-columns:1fr }
+  .navlinks button:nth-child(-n+3){ display:none }
+}
+@media (max-width:560px){
+  .shell{ padding:0 16px 60px }
+  .grid{ grid-template-columns:1fr }
+  .hero{ padding-top:58px }
+  .hero h1{ letter-spacing:-3px }
+  .command{ flex-direction:column }
+  .navlinks .kbd{ display:none }
+}
+```
+
+**The mobile nav model is the opposite of a hamburger.** At ≤850px the prototype
+**hides the first three nav links entirely** and relies on scrolling; at ≤560px it
+also hides the `⌘K` kbd hint and stacks the command input above its button. The
+artifact has **no hamburger control at all**.
+
+Current Preview invented a `nav-toggle` whose closed state does not actually hide
+its panel — `aria-expanded="false"` while `.nav-panel` computes `display:flex` at
+213px tall, pushing the first content section to y=472 of an 844px viewport. That
+is an accessibility defect independent of the prototype.
+
+---
+
+## 12. Copy
+
+**PROTOTYPE_MATCH** tone, from the artifact hero:
+
+> `JU는 GitHub 프로젝트 목록이 아닙니다. 제품을 이해하고, 데모하고, 다운로드하거나 바로 실행하는 공식 제품 포털입니다.`
+
+This states what the product *is* in beginner terms. Adopt the register, not the words.
+
+**CURRENT_ONLY — register rules.** Audience is vibe-coding beginners, non-developers.
+Never surface `Registry`, `resolver`, `provider`, `distribution`, `canonical`,
+`SSOT`. Prefer `바로 써보기`, `설치하기`, `AI가 뭘 했는지 확인`, `Agent 능력 추가`,
+`새 AI 도구 찾기`. Headings short, cards one sentence, paragraphs ≤ 2–3 lines.
+
+Current Preview ships JuTell's summary and a Labs reason in **English** on a Korean
+beginner-facing site.
+
+---
+
+## 13. Definition of done — visual round
+
+- [ ] `--accent: #d8ff4f` and `--accent2: #8df6dc` in use; teal removed
+- [ ] Accent as a scalpel: wordmark `U`, headline `<em>`, primary CTAs only
+- [ ] Sticky translucent nav with backdrop blur; links include `Skills`
+- [ ] Eyebrow is a bordered pill reading `JU PRODUCT PORTAL`
+- [ ] `h1` at `clamp(44px,8vw,88px)` / `line-height:.95` / `letter-spacing:-5px`
+- [ ] Command entry: real input + lime `찾아보기` + ≥3 hint chips + recommend banner
+- [ ] Cards: appicon, status pill, one-line tagline, meta tags, lime CTA + Details, hover lift
+- [ ] Card media shows real content, never an empty box
+- [ ] Desktop detail is a 960px overlay, two-column `1.2fr / 0.8fr`; deep routes work
+- [ ] Labs uses light rows, not cards
+- [ ] Radar unchanged (one card, one CTA)
+- [ ] Skills keeps its intentional empty state
+- [ ] Responsive matches §11; no broken toggle state
+- [ ] Public copy is Korean, beginner register
+- [ ] Functional baseline §14 still passes 14/14
+
+---
+
+## 14. Functional baseline that must survive
+
+Products = JuQode + JuTell · JuQode primary = Try Web · JuTell primary = Install ·
+Labs = JuDoctor, JuControler, JuCeipt, JuMiner · Skills first-class · Radar thin ·
+Registry-driven · one authoritative `getPrimaryAction()` · versioned media · local
+media path stays **relative** · canonical from `VERCEL_PROJECT_PRODUCTION_URL` ·
+all deep routes · responsive · accessibility · no broken CTA · security headers ·
+no source/docs leakage.
