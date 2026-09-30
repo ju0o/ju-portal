@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>JU Portal V0 — Interactive Prototype</title>
+<style>
+:root{--bg:#0b0d10;--panel:#12151a;--panel2:#191d24;--text:#f4f6f8;--muted:#9aa4b2;--line:#2a3039;--accent:#d8ff4f;--accent2:#8df6dc;--danger:#ff8b7d;--white:#fff}
+*{box-sizing:border-box} body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+button,input{font:inherit} a{color:inherit;text-decoration:none}
+.shell{max-width:1180px;margin:auto;padding:0 24px 80px}
+nav{height:72px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(11,13,16,.92);backdrop-filter:blur(14px);z-index:10}
+.brand{font-weight:900;font-size:28px;letter-spacing:-1px}.brand span{color:var(--accent)}
+.navlinks{display:flex;gap:8px;align-items:center}.navlinks button,.ghost{background:transparent;border:1px solid transparent;color:var(--muted);padding:10px 12px;border-radius:12px;cursor:pointer}
+.navlinks button:hover,.ghost:hover{border-color:var(--line);color:var(--white);background:var(--panel)}
+.hero{padding:86px 0 56px}.eyebrow{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line);background:var(--panel);padding:7px 10px;border-radius:999px;color:var(--muted);font-size:13px}
+.hero h1{font-size:clamp(44px,8vw,88px);letter-spacing:-5px;line-height:.95;margin:24px 0 18px;max-width:900px}.hero h1 em{font-style:normal;color:var(--accent)}
+.hero p{max-width:720px;color:var(--muted);font-size:19px;line-height:1.6}
+.command{margin-top:34px;display:flex;gap:10px;max-width:780px;background:var(--panel);border:1px solid var(--line);padding:10px;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.28)}
+.command input{flex:1;background:transparent;border:0;outline:0;color:var(--text);padding:12px;font-size:16px}.command button,.primary{border:0;background:var(--accent);color:#111;padding:12px 16px;border-radius:12px;font-weight:800;cursor:pointer}
+.hints{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.hint{font-size:12px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 10px;cursor:pointer}
+.sectionHead{display:flex;justify-content:space-between;align-items:end;margin:44px 0 18px}.sectionHead h2{margin:0;font-size:26px}.sectionHead p{margin:0;color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{background:linear-gradient(180deg,var(--panel),#101318);border:1px solid var(--line);border-radius:20px;padding:22px;min-height:230px;display:flex;flex-direction:column;transition:.2s;cursor:pointer}
+.card:hover{transform:translateY(-4px);border-color:#47515f}.card .top{display:flex;justify-content:space-between;gap:10px}.appicon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:#242a34;font-weight:900}.status{font-size:11px;text-transform:uppercase;letter-spacing:.08em;border:1px solid var(--line);border-radius:999px;padding:6px 8px;color:var(--muted);height:max-content}
+.card h3{font-size:22px;margin:20px 0 8px}.card p{color:var(--muted);line-height:1.55;margin:0}.meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}.tag{font-size:11px;background:#1a1f27;color:#aeb8c4;border:1px solid var(--line);padding:5px 8px;border-radius:8px}
+.actions{display:flex;gap:8px;margin-top:auto;padding-top:20px}.actions button{cursor:pointer;border-radius:11px;padding:10px 12px;border:1px solid var(--line);background:#181c22;color:var(--text)}.actions .cta{background:var(--accent);color:#111;border-color:var(--accent);font-weight:800}
+.banner{margin-top:18px;border:1px solid #31554d;background:#10231f;border-radius:18px;padding:16px 18px;color:#bdf7e8;display:none}
+.tabs{display:flex;gap:8px;margin:18px 0}.tabs button{border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:9px 12px;border-radius:10px;cursor:pointer}.tabs button.active{background:var(--text);color:#111}
+.labrow{display:flex;align-items:center;justify-content:space-between;padding:17px 0;border-bottom:1px solid var(--line)}.labrow small{color:var(--muted)}
+footer{margin-top:80px;padding-top:30px;border-top:1px solid var(--line);color:var(--muted);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:18px;z-index:30}.overlay.open{display:flex}
+.modal{width:min(960px,100%);max-height:90vh;overflow:auto;background:#0f1216;border:1px solid var(--line);border-radius:24px;padding:26px;box-shadow:0 30px 100px rgba(0,0,0,.6)}
+.modalHead{display:flex;justify-content:space-between;gap:20px}.close{background:var(--panel);border:1px solid var(--line);color:var(--text);width:38px;height:38px;border-radius:12px;cursor:pointer}
+.heroProduct{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;margin-top:22px}.info,.demo{border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:20px}
+.demoScreen{background:#090b0e;border:1px solid #28313a;border-radius:14px;padding:14px;min-height:220px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}.demoScreen .green{color:var(--accent2)}.demoScreen .lime{color:var(--accent)}.demoScreen .muted{color:#697585}
+.installBox{margin-top:16px;background:#0a0c0f;border:1px solid var(--line);padding:13px;border-radius:12px;display:flex;justify-content:space-between;gap:12px;font-family:ui-monospace,monospace}
+.kbd{border:1px solid #3b424c;background:#1b2027;border-radius:6px;padding:2px 6px;font-size:11px}
+.commandPalette{position:fixed;inset:0;background:rgba(0,0,0,.76);display:none;align-items:flex-start;justify-content:center;padding-top:14vh;z-index:40}.commandPalette.open{display:flex}
+.cpbox{width:min(680px,calc(100% - 32px));background:#11151a;border:1px solid var(--line);border-radius:18px;overflow:hidden}.cpbox input{width:100%;background:#0c0f13;color:white;border:0;border-bottom:1px solid var(--line);padding:18px;font-size:17px;outline:0}.results{padding:8px}.result{padding:12px;border-radius:12px;cursor:pointer}.result:hover{background:#1a1f26}.result small{display:block;color:var(--muted);margin-top:3px}
+.prototypeNote{margin-top:18px;color:#ffddb1;font-size:12px}
+@media(max-width:850px){.grid{grid-template-columns:1fr 1fr}.heroProduct{grid-template-columns:1fr}.navlinks button:nth-child(-n+3){display:none}}
+@media(max-width:560px){.shell{padding:0 16px 60px}.grid{grid-template-columns:1fr}.hero{padding-top:58px}.hero h1{letter-spacing:-3px}.command{flex-direction:column}.navlinks .kbd{display:none}}
+</style>
+</head>
+<body>
+<div class="shell">
+<nav>
+  <div class="brand">J<span>U</span></div>
+  <div class="navlinks">
+    <button data-scroll="products">Products</button><button data-scroll="labs">Labs</button><button data-scroll="radar">Radar</button>
+    <button id="openCommand">Command <span class="kbd">⌘K</span></button>
+    <button class="ghost" onclick="alert('Prototype: production에서는 각 제품의 실제 Source/GitHub 링크로 이동합니다.')">GitHub ↗</button>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="eyebrow">JU PRODUCT PORTAL · V0 PROTOTYPE</div>
+  <h1>필요한 도구를 찾고,<br><em>바로 써보세요.</em></h1>
+  <p>JU는 GitHub 프로젝트 목록이 아닙니다. 제품을 이해하고, 데모하고, 다운로드하거나 바로 실행하는 공식 제품 포털입니다.</p>
+  <div class="command">
+    <input id="needInput" placeholder="예: AI 에이전트 여러 개 관리하고 싶어" />
+    <button id="recommendBtn">찾아보기</button>
+  </div>
+  <div class="hints">
+    <button class="hint">AI가 뭘 수정했는지 보고 싶어</button>
+    <button class="hint">PC가 왜 느린지 알고 싶어</button>
+    <button class="hint">프로젝트 구조를 이해하고 싶어</button>
+  </div>
+  <div id="recommendBanner" class="banner"></div>
+</section>
+
+<section id="products">
+  <div class="sectionHead"><div><h2>Products</h2><p>일반 사용자에게 실제로 제공할 수 있는 JU 제품</p></div><p>Prototype data · 실제 status는 출시 전 검증</p></div>
+  <div class="tabs"><button class="active" data-filter="all">All</button><button data-filter="build">Build</button><button data-filter="understand">Understand</button><button data-filter="utility">Utility</button></div>
+  <div class="grid" id="productGrid"></div>
+</section>
+
+<section id="labs">
+  <div class="sectionHead"><div><h2>Labs</h2><p>완제품으로 가장하지 않는 연구·실험 공간</p></div></div>
+  <div class="labrow"><div><b>Project First Contact</b><br><small>Developmental intelligence research · LAB</small></div><button class="ghost">Research notes</button></div>
+  <div class="labrow"><div><b>JuESW</b><br><small>Experimental software-world interface · LAB</small></div><button class="ghost">Explore</button></div>
+</section>
+
+<section id="radar">
+  <div class="sectionHead"><div><h2>Radar</h2><p>JU가 발견하고 검증하는 새로운 AI / Agent / 개발도구</p></div></div>
+  <div class="card" style="min-height:auto;cursor:default">
+    <div class="top"><div class="appicon">R</div><span class="status">MEDIA</span></div>
+    <h3>JU Radar</h3><p>제품 광고 계정이 아니라, 실제 써볼 가치가 있는 AI 제품과 개발도구를 선별하는 JU의 discovery surface.</p>
+    <div class="actions"><button class="cta" onclick="alert('Prototype: JU Radar 실제 서비스/채널 URL 연결')">Open Radar</button></div>
+  </div>
+</section>
+
+<footer><b>JU</b><span>Products · Labs · Radar · Source</span><span>Prototype only — no real downloads are triggered.</span></footer>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modalHead"><div><div class="eyebrow">JU PRODUCT</div><h2 id="modalTitle" style="font-size:40px;margin:12px 0 6px"></h2><p id="modalTagline" style="color:var(--muted);margin:0"></p></div><button class="close" id="closeModal">×</button></div>
+    <div class="heroProduct">
+      <div class="info">
+        <h3>What it does</h3><p id="modalSummary" style="color:var(--muted);line-height:1.65"></p>
+        <div class="meta" id="modalMeta"></div>
+        <div class="installBox"><span id="installText"></span><button class="ghost" id="copyInstall">Copy</button></div>
+        <div class="actions"><button class="cta" id="primaryAction"></button><button id="sourceBtn">GitHub / Source ↗</button></div>
+        <div class="prototypeNote">실제 Portal에서는 Registry가 release/provider를 해결합니다. 이 Prototype의 CTA는 실제 설치를 실행하지 않습니다.</div>
+      </div>
+      <div class="demo">
+        <div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0 0 12px">Interactive Demo</h3><span class="status">DEMO MODE</span></div>
+        <div class="demoScreen" id="demoScreen"></div>
+        <div class="actions"><button class="cta" id="runDemo">Run sample</button><button id="resetDemo">Reset</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="commandPalette" id="commandPalette">
+  <div class="cpbox"><input id="cpInput" placeholder="제품 또는 하고 싶은 일을 입력…" autofocus><div class="results" id="cpResults"></div></div>
+</div>
+
+<script>
+const products = [
+ {id:'controler',name:'JuControler',cat:'build',status:'Candidate',tagline:'여러 AI 코딩 에이전트를 하나의 관제탑에서.',summary:'프로젝트, 작업, 여러 Coding Agent의 실행과 검증 흐름을 한 곳에서 관리하는 JU의 control tower.',platforms:['WSL','Linux'],action:'Install',install:'ju install controler',keywords:'에이전트 agent 여러개 관리 claude codex opencode control tower 관제',demo:['> show project status','JuCeipt   BUILDING   72%','JuTell    QA         91%','Codex     TESTING','Claude    WORKING']},
+ {id:'ceipt',name:'JuCeipt',cat:'understand',status:'Beta',tagline:'AI가 실제로 무엇을 했는지 확인하세요.',summary:'Coding Agent의 말이 아니라 실제 변경 결과와 evidence를 읽기 쉬운 receipt로 보여주는 제품.',platforms:['CLI','Developer'],action:'Install',install:'npm install -g juceipt',keywords:'ai 수정 변경 evidence 영수증 receipt agent done 확인',demo:['Agent says: Done.','Scanning actual changes...','4 files changed','31/31 tests passed','Review: auth permission changed']},
+ {id:'doctor',name:'JuDoctor',cat:'utility',status:'Candidate',tagline:'내 PC의 이상 징후를 이해하기 쉽게.',summary:'CPU, RAM, GPU, 디스크와 프로세스 상태를 관찰해 사용자가 PC 문제를 파악하도록 돕는 Windows utility.',platforms:['Windows'],action:'Download',install:'JuDoctor-Setup.exe',keywords:'pc 느림 컴퓨터 cpu ram gpu 진단 doctor windows',demo:['CPU      normal','RAM      high 82%','GPU VRAM normal','Disk     latency spike','Suggestion: inspect top memory process']},
+ {id:'miner',name:'JuMiner',cat:'understand',status:'Beta',tagline:'낯선 프로젝트 구조를 먼저 이해하세요.',summary:'Repository의 구조와 의미를 분석해 사람과 Agent가 코드를 바꾸기 전에 프로젝트를 파악하도록 돕습니다.',platforms:['CLI'],action:'Try',install:'ju miner ./project',keywords:'repo repository 프로젝트 구조 분석 이해 map miner',demo:['Scanning repository...','143 nodes / 137 edges','Core: src/runtime','Risk: duplicated config paths','Map ready']},
+ {id:'qode',name:'JuQode',cat:'build',status:'Beta',tagline:'말로 시키고, 변경을 카드로 이해하세요.',summary:'비개발자가 Coding Agent와 더 쉽게 대화하고 결과를 이해할 수 있도록 설계한 JU coding experience.',platforms:['Web'],action:'Open',install:'Open web app',keywords:'비개발자 코딩 말로 vibe qode web',demo:['You: 로그인 화면 조금 쉽게 바꿔줘','Plan card created','UI changes proposed','Preview ready','Explain changes? Yes']},
+ {id:'tell',name:'JuTell',cat:'understand',status:'Beta',tagline:'코드와 Agent 결과를 사람의 말로.',summary:'복잡한 코드와 작업 결과를 사람이 빠르게 이해할 수 있는 설명으로 변환하는 JU explanation layer.',platforms:['CLI','MCP'],action:'Try',install:'ju tell ./src',keywords:'설명 code 이해 agent 결과 tell mcp',demo:['Input: auth middleware diff','Meaning: login check changed','Impact: unauthenticated users blocked','Risk: callback route may need exception']}
+];
+
+const grid=document.querySelector('#productGrid');
+function render(list=products){
+ grid.innerHTML=list.map(p=>`<article class="card" data-id="${p.id}">
+ <div class="top"><div class="appicon">${p.name.replace('Ju','').slice(0,1)}</div><span class="status">${p.status}</span></div>
+ <h3>${p.name}</h3><p>${p.tagline}</p><div class="meta">${p.platforms.map(x=>`<span class="tag">${x}</span>`).join('')}</div>
+ <div class="actions"><button class="cta">${p.action}</button><button>Details</button></div></article>`).join('');
+ grid.querySelectorAll('.card').forEach(c=>c.onclick=()=>openProduct(c.dataset.id));
+}
+render();
+document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('[data-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+ render(b.dataset.filter==='all'?products:products.filter(p=>p.cat===b.dataset.filter));
+});
+document.querySelectorAll('[data-scroll]').forEach(b=>b.onclick=()=>document.getElementById(b.dataset.scroll).scrollIntoView({behavior:'smooth'}));
+const overlay=document.querySelector('#overlay');
+let current=null;
+function openProduct(id){
+ current=products.find(p=>p.id===id); if(!current)return;
+ modalTitle.textContent=current.name;modalTagline.textContent=current.tagline;modalSummary.textContent=current.summary;
+ modalMeta.innerHTML=[...current.platforms,current.status].map(x=>`<span class="tag">${x}</span>`).join('');
+ installText.textContent=current.install;primaryAction.textContent=current.action;
+ demoScreen.innerHTML='<span class="muted">DEMO MODE — sample fixture only</span><br><br>Ready.';
+ overlay.classList.add('open');
+}
+closeModal.onclick=()=>overlay.classList.remove('open'); overlay.onclick=e=>{if(e.target===overlay)overlay.classList.remove('open')};
+runDemo.onclick=()=>{demoScreen.innerHTML='<span class="muted">DEMO MODE — sample fixture only</span><br><br>'+current.demo.map((x,i)=>`<div class="${i===current.demo.length-1?'lime':'green'}">${x}</div>`).join('')};
+resetDemo.onclick=()=>demoScreen.innerHTML='<span class="muted">DEMO MODE — sample fixture only</span><br><br>Ready.';
+copyInstall.onclick=async()=>{try{await navigator.clipboard.writeText(current.install);copyInstall.textContent='Copied';setTimeout(()=>copyInstall.textContent='Copy',1200)}catch(e){alert(current.install)}};
+primaryAction.onclick=()=>alert(`Prototype only: production에서는 ${current.action} 동작이 실제 Registry/Release Provider와 연결됩니다.`);
+sourceBtn.onclick=()=>alert('Prototype only: production에서는 이 제품의 실제 GitHub/Source URL로 이동합니다.');
+
+function recommend(q){
+ const s=q.toLowerCase().trim(); if(!s)return null;
+ let best=null,score=0;
+ products.forEach(p=>{let n=0;(p.keywords+' '+p.name+' '+p.tagline).toLowerCase().split(/\s+/).forEach(k=>{if(k&&s.includes(k))n+=2});s.split(/\s+/).forEach(k=>{if(k&&p.keywords.includes(k))n++});if(n>score){score=n;best=p}});
+ if(!best){
+   if(/에이전트|agent|claude|codex/.test(s))best=products[0];
+   else if(/pc|컴퓨터|느림|ram|gpu/.test(s))best=products[2];
+   else if(/수정|변경|뭘 했|evidence/.test(s))best=products[1];
+   else best=products[3];
+ }
+ return best;
+}
+function doRecommend(q){
+ const p=recommend(q); if(!p)return;
+ recommendBanner.style.display='block';recommendBanner.innerHTML=`추천: <b>${p.name}</b> — ${p.tagline} <button style="margin-left:10px" onclick="openProduct('${p.id}')">열어보기</button>`;
+}
+recommendBtn.onclick=()=>doRecommend(needInput.value);
+needInput.onkeydown=e=>{if(e.key==='Enter')doRecommend(needInput.value)};
+document.querySelectorAll('.hint').forEach(h=>h.onclick=()=>{needInput.value=h.textContent;doRecommend(h.textContent)});
+
+const cp=document.querySelector('#commandPalette'),cpInput=document.querySelector('#cpInput'),cpResults=document.querySelector('#cpResults');
+function openCP(){cp.classList.add('open');cpInput.value='';renderCP('');setTimeout(()=>cpInput.focus(),50)}
+function closeCP(){cp.classList.remove('open')}
+openCommand.onclick=openCP;cp.onclick=e=>{if(e.target===cp)closeCP()};
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openCP()}if(e.key==='Escape'){closeCP();overlay.classList.remove('open')}if(e.key==='/'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();openCP()}});
+cpInput.oninput=()=>renderCP(cpInput.value);
+function renderCP(q){
+ const qq=q.toLowerCase().trim();
+ const list=!qq?products:products.filter(p=>(p.name+' '+p.keywords+' '+p.tagline).toLowerCase().includes(qq));
+ cpResults.innerHTML=list.map(p=>`<div class="result" data-id="${p.id}"><b>${p.name}</b><small>${p.tagline}</small></div>`).join('') || `<div class="result"><b>검색 결과 없음</b><small>문제/필요를 다른 표현으로 입력해보세요.</small></div>`;
+ cpResults.querySelectorAll('[data-id]').forEach(r=>r.onclick=()=>{closeCP();openProduct(r.dataset.id)});
+}
+</script>
+</body>
+</html>
