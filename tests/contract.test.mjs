@@ -479,6 +479,38 @@ test('Discovery entry is preserved on the Portal home', () => {
   }
 });
 
+test('Home carries the approved JU brand story before real Registry products', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  const order = [
+    'data-hero', '01 · BRAND VALUE', '02 · YOU INSTRUCT', '03 · AI WORKS',
+    '04 · REAL TOOL', 'id="skills"', 'id="labs"', 'id="radar"', 'data-section="notify"',
+  ].map((token) => html.indexOf(token));
+  assert.ok(order.every((index) => index >= 0), 'all Home narrative sections must be present');
+  assert.deepEqual(order, [...order].sort((a, b) => a - b), 'Home story and product order must remain canonical');
+  const main = html.slice(html.indexOf('<main'), html.indexOf('</main>'));
+  assert.equal((main.match(/<h1\b/g) ?? []).length, 1, 'Home content must have exactly one meaningful h1');
+  assert.ok(html.includes('비개발자의 생각이 말이 되고,'));
+  assert.ok(html.includes('말이 AI의 작업이 되고,'));
+  assert.ok(html.includes('그 결과가 다시 사람이 이해할 수 있는'));
+  assert.ok(html.includes('도구가 됩니다.'));
+  assert.ok(html.includes('data-cta data-slug="juqode"'), 'JuQode must keep its Registry-resolved CTA');
+  assert.ok(html.includes('data-showroom="juqode"') && html.includes('data-showroom="jutell"'), 'both real Registry product routes must remain reachable');
+  assert.ok(html.includes('알림 기능 준비 중 · 지금은 입력을 받지 않습니다'));
+});
+
+test('Home motion is deterministic and reduced motion resolves content immediately', () => {
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+  assert.ok(css.includes('white-space: nowrap') && css.includes('word-break: keep-all'));
+  assert.ok(css.includes('@media (prefers-reduced-motion: reduce)'));
+  assert.ok(css.includes('animation: none !important') && css.includes('transition: none !important'));
+  assert.ok(css.includes('APPEAR') && css.includes('ASSEMBLE') && css.includes('RESOLVE'));
+  assert.ok(js.includes("window.matchMedia('(prefers-reduced-motion: reduce)')"));
+  assert.ok(js.includes('IntersectionObserver'));
+  assert.ok(!js.includes('Math.random'));
+  assert.ok(js.includes("'(hover: hover) and (pointer: fine)'"));
+});
+
 test('the side rail keeps every production section', () => {
   const html = readFileSync(join(DIST, 'index.html'), 'utf8');
   for (const section of ['top', 'products', 'skills', 'labs', 'radar']) {

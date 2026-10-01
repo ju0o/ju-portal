@@ -197,17 +197,45 @@ a { color: inherit; text-decoration: none; }
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  grid-template-columns: minmax(0, 1.32fr) minmax(0, 0.68fr);
   align-items: center;
-  gap: clamp(24px, 4vw, 60px);
+  gap: clamp(20px, 3vw, 40px);
   min-height: 78svh;
   padding: clamp(48px, 6vw, 86px) 0 clamp(40px, 5vw, 64px);
 }
 
-.hero-copy { display: flex; flex-direction: column; gap: 22px; max-width: 620px; }
+.hero-copy {
+  display: flex; flex-direction: column; gap: 22px;
+  max-width: 780px;
+  container-type: inline-size;
+}
 
-.hero-title { margin: 0; }
-.hero-title span { display: block; }
+/* Hero headline.
+   Each authored line is its own block. `keep-all` stops Korean splitting
+   inside a word (생|각이). `text-wrap: balance` is deliberately NOT used: it
+   re-balances lines inside each block and was the actual cause of the mid-word
+   break. `nowrap` holds each authored line on one row and lets the fluid size
+   below shrink to fit rather than break a word. */
+.hero-title {
+  margin: 0;
+  font-size: clamp(21px, 4.6cqi, 44px);
+  line-height: 1.16;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  line-break: strict;
+  max-width: 100%;
+}
+.hero-title > span {
+  display: block;
+  white-space: nowrap;
+}
+.hero-title em { font-style: normal; color: var(--ju-lime); }
+.display, .title, .story-title { word-break: keep-all; overflow-wrap: normal; }
+
+/* Narrow-screen wrapping is handled by the min-width/max-width pair at the end
+   of this file, so no override is needed here. */
 
 .hero-sub { margin: 0; color: var(--ju-muted); font-size: 15px; line-height: 1.7; }
 
@@ -278,46 +306,210 @@ a { color: inherit; text-decoration: none; }
 
 /* Founder portrait: derived dot geometry, background-integrated, unboxed.
    Raw source never reaches the site. */
-.hero-signal { position: relative; aspect-ratio: 1 / 1.04; }
+.hero-signal {
+  position: relative; aspect-ratio: 1 / 1.08;
+  --px: 0px; --py: 0px; /* pointer parallax offsets, set by portal.js */
+}
 
 .signal-field {
   position: absolute; inset: 0;
   background:
-    radial-gradient(60% 50% at 62% 34%, rgba(216, 255, 79, 0.07), transparent 70%),
-    radial-gradient(50% 45% at 30% 70%, rgba(141, 246, 220, 0.05), transparent 72%);
+    radial-gradient(55% 48% at 38% 36%, rgba(242, 241, 234, 0.045), transparent 72%),
+    radial-gradient(50% 45% at 78% 78%, rgba(216, 255, 79, 0.06), transparent 70%),
+    radial-gradient(45% 40% at 20% 80%, rgba(141, 246, 220, 0.04), transparent 72%);
 }
 
+/* The derived geometry places the face in the upper-left of the 56x56 grid,
+   so the mask is centred there and the field dissolves outward: no frame, no
+   panel, no edge. Dot size is a share of the field (set per dot by portal.js)
+   so the face reads at every viewport without the grid showing. */
 .portrait-dots {
   position: absolute; inset: 0;
-  -webkit-mask-image: radial-gradient(58% 54% at 50% 46%, #000 42%, rgba(0, 0, 0, 0.5) 70%, transparent 92%);
-  mask-image: radial-gradient(58% 54% at 50% 46%, #000 42%, rgba(0, 0, 0, 0.5) 70%, transparent 92%);
-  opacity: 0.42;
+  transform: translate(var(--px), var(--py));
+  -webkit-mask-image: radial-gradient(62% 66% at 34% 42%, #000 30%, rgba(0, 0, 0, 0.6) 58%, transparent 88%);
+  mask-image: radial-gradient(62% 66% at 34% 42%, #000 30%, rgba(0, 0, 0, 0.6) 58%, transparent 88%);
+  opacity: 0.92;
+  transition: transform 0.6s var(--ease);
 }
 
-.portrait-dot { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); }
-.portrait-dot.hi, .portrait-dot.mid { background: var(--ju-paper); }
+.portrait-dot {
+  position: absolute; border-radius: 50%;
+  width: var(--s, 1%); aspect-ratio: 1;
+  opacity: var(--a, 0.5);
+  transform: translate(-50%, -50%);
+}
+.portrait-dot.hi { background: var(--ju-paper); }
+.portrait-dot.mid { background: #c9c8bf; }
 .portrait-dot.lo { background: var(--ju-muted); }
 
-.signal-word {
-  position: absolute; inset: 0;
-  display: grid; place-items: center;
-  font-size: clamp(96px, 16vw, 240px);
-  font-weight: 900; line-height: 0.8; letter-spacing: -0.06em;
-  color: var(--ju-paper);
-  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 22%, rgba(0, 0, 0, 0.55) 60%, transparent 92%);
-  mask-image: radial-gradient(circle at 50% 50%, #000 22%, rgba(0, 0, 0, 0.55) 60%, transparent 92%);
-  opacity: 0.88;
+/* The JU symbol resolves out of the empty side of the field. Smaller than
+   before and placed low-right so it never covers the face. */
+.signal-resolve {
+  position: absolute; right: 2%; bottom: 6%;
+  width: clamp(68px, 9vw, 126px);
+  color: var(--ju-paper); opacity: .76;
+  transform: translate(calc(var(--px) * -0.8), calc(var(--py) * -0.8));
+  transition: transform 0.6s var(--ease), opacity .55s var(--ease);
 }
+.signal-resolve .tile-signal { display: block; width: 100%; }
+.signal-resolve svg { width: 100%; height: auto; }
+.signal-paths { position: absolute; inset: 0; width: 100%; height: 100%; }
+.signal-paths path { fill: none; stroke: rgba(216,255,79,.28); stroke-width: 1; stroke-dasharray: 2 9; stroke-linecap: round; }
 
 .signal-node {
   position: absolute;
-  width: 13px; height: 13px; border-radius: 50%;
+  width: 12px; height: 12px; border-radius: 50%;
   background: var(--ju-lime);
   box-shadow: 0 0 22px 5px rgba(216, 255, 79, 0.28);
 }
-.signal-node-a { top: 26%; right: 22%; }
-.signal-node-b { bottom: 30%; left: 18%; width: 9px; height: 9px; opacity: 0.7; }
-.signal-node-c { top: 62%; right: 32%; width: 7px; height: 7px; opacity: 0.5; }
+.signal-node-a { top: 24%; left: 50%; }
+.signal-node-b { bottom: 24%; left: 10%; width: 9px; height: 9px; opacity: 0.7; }
+.signal-node-c { top: 58%; right: 10%; width: 7px; height: 7px; opacity: 0.55; }
+
+/* ══ brand story bands (01–04) ══════════════════════════════ */
+
+/* The BRAND VALUE figure sits in its own grid column instead of floating over
+   the copy. An absolutely-positioned decorative layer always overlaps its
+   siblings' boxes, which reads as a real overlap in layout auditing even when
+   nothing is visually colliding. */
+.band-story {
+  position: relative;
+  gap: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+  align-items: start;
+}
+.band-story .band-index { grid-column: 1 / -1; }
+.band-story .story-body { grid-column: 1; }
+.band-story .story-figure { grid-column: 2; }
+.band-story > .beat { grid-column: 1 / -1; }
+
+@media (max-width: 900px) {
+  .band-story { grid-template-columns: minmax(0, 1fr); }
+  .band-story .story-figure { display: none; }
+}
+.story-body { display: flex; flex-direction: column; gap: 22px; max-width: 860px; }
+
+.story-title {
+  margin: 0;
+  font-size: clamp(26px, 3.1vw, 44px);
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  text-wrap: balance;
+}
+.story-rule { height: 1px; width: min(100%, 520px); background: var(--ju-line); transform-origin: left; }
+.story-text { margin: 0; color: var(--ju-muted); font-size: 15px; line-height: 1.75; max-width: 46rem; }
+
+.story-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.55fr);
+  gap: clamp(20px, 3vw, 48px);
+  align-items: start;
+}
+.story-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.story-list li {
+  position: relative; padding-left: 18px;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
+  color: var(--ju-paper);
+}
+.story-list li::before {
+  content: ''; position: absolute; left: 0; top: 7px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--ju-lime);
+}
+
+/* 01: a sparse signal figure sits in the right-hand negative space. */
+.story-figure {
+  position: relative;
+  width: 100%;
+  height: clamp(140px, 20vw, 240px);
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(60% 60% at 50% 50%, #000 40%, transparent 95%);
+  mask-image: radial-gradient(60% 60% at 50% 50%, #000 40%, transparent 95%);
+}
+.story-dot {
+  position: absolute; border-radius: 50%;
+  width: 4px; height: 4px;
+  background: var(--ju-paper);
+  opacity: var(--a, 0.5);
+  transform: translate(-50%, -50%);
+}
+.story-dot.is-lime { background: var(--ju-lime); }
+
+/* 02/03 beats: copy left, signal visual right. */
+.beat {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(20px, 3vw, 48px);
+  align-items: center;
+}
+.beat > div:first-child { display: flex; flex-direction: column; gap: 18px; }
+.beat-title { font-size: clamp(24px, 2.6vw, 38px); }
+
+.beat-visual {
+  position: relative; min-height: 220px;
+  border-radius: 6px; overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(43, 43, 40, 0.5) 1px, transparent 1px) 0 0 / 28px 28px,
+    radial-gradient(70% 80% at 30% 50%, rgba(141, 246, 220, 0.05), transparent 72%);
+}
+.beat-dots { position: absolute; inset: 0; }
+
+.prompt {
+  position: absolute; left: 24px; right: 24px; top: 50%;
+  transform: translateY(-50%);
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--ju-line);
+  border-radius: 8px;
+  background: var(--ju-black);
+  font-size: 15px; color: var(--ju-paper);
+}
+.prompt-cursor { color: var(--ju-lime); font-weight: 800; }
+.prompt-text { white-space: nowrap; overflow: hidden; }
+.signal-track {
+  position: absolute; left: 24px; right: 24px; bottom: 26px; height: 1px;
+  background: var(--ju-line);
+}
+.signal-runner {
+  position: absolute; top: 50%; left: 100%;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ju-lime);
+  box-shadow: 0 0 14px 3px rgba(216, 255, 79, 0.35);
+  transform: translate(-50%, -50%);
+}
+
+.states {
+  position: absolute; inset: 0;
+  margin: 0; padding: 28px 24px; list-style: none;
+  display: flex; flex-wrap: wrap; align-content: center; gap: 10px;
+}
+.chip.state { gap: 8px; padding: 9px 13px; font-size: 11px; position: relative; z-index: 1; }
+.state-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ju-muted); }
+/* Resolved state is the default (no JS, reduced motion, or after the sequence). */
+.chip.state { color: var(--ju-paper); border-color: var(--ju-mint); background: var(--ju-black); }
+.chip.state .state-dot { background: var(--ju-mint); }
+.work-line {
+  position: absolute; left: 24px; right: 24px; top: 50%; height: 1px;
+  background: var(--ju-mint); opacity: 0.35;
+  transform-origin: left;
+}
+
+.band-resolve .grid { margin-top: 8px; }
+
+/* ══ notification preview (disabled; no backend) ═══════════ */
+
+.notify-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; max-width: 560px; }
+.notify-field {
+  flex: 1 1 220px; min-height: 44px;
+  display: inline-flex; align-items: center;
+  padding: 0 16px; border-radius: 999px;
+  border: 1px dashed var(--ju-line);
+  color: #5a5a54; font-size: 14px;
+  background: transparent;
+}
+.notify-preview .label { flex-basis: 100%; }
 
 /* ══ buttons / CTAs ═════════════════════════════════════════ */
 
@@ -380,11 +572,39 @@ a { color: inherit; text-decoration: none; }
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--ju-lime);
   box-shadow: 0 0 10px 2px rgba(216, 255, 79, 0.35);
+  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
 }
-.tile:hover { transform: translateY(-4px); border-color: var(--ju-line); }
+.tile:hover, .tile:focus-within { transform: translateY(-4px); border-color: var(--ju-line); }
+.tile:hover::after, .tile:focus-within::after {
+  transform: scale(1.5);
+  box-shadow: 0 0 18px 5px rgba(216, 255, 79, 0.45);
+}
+
+/* Interaction rewards: a signal travels the top edge, media lifts slightly,
+   and the icon dots lean toward the pointer (portal.js sets --dx/--dy). */
+.tile-sweep {
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ju-lime), var(--ju-mint), transparent);
+  transform: translateX(-100%); opacity: 0;
+  pointer-events: none; z-index: 1;
+}
+.tile:hover .tile-sweep, .tile:focus-within .tile-sweep { animation: ju-sweep 0.9s var(--ease) forwards; }
+.tile-media > img, .tile-media > video { transition: transform 0.6s var(--ease), filter 0.6s var(--ease); }
+.tile:hover .tile-media > img, .tile:hover .tile-media > video,
+.tile:focus-within .tile-media > img, .tile:focus-within .tile-media > video {
+  transform: scale(1.025);
+  filter: brightness(1.06);
+}
 
 .tile-signal { width: 50px; color: var(--ju-paper); }
-.tile-signal svg { width: 100%; height: auto; }
+.tile-signal svg { width: 100%; height: auto; overflow: visible; }
+.tile-signal circle {
+  transform-box: fill-box; transform-origin: center;
+  transform: translate(var(--dx, 0px), var(--dy, 0px));
+  transition: transform 0.5s var(--ease), fill 0.3s var(--ease);
+}
+.tile:hover .tile-signal circle:last-child, .tile:focus-within .tile-signal circle:last-child { fill: var(--ju-mint); }
+.js-reveal .tile.reveal.is-in .tile-signal circle { animation: ju-draw 0.5s var(--ease) both; animation-delay: calc(var(--i, 0) * 28ms); }
 
 .tile-name { margin: 4px 0 0; font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
 /* The title is a real deep-route link, so it needs a real tap target. */
@@ -554,15 +774,77 @@ body.is-locked { overflow: hidden; }
 @keyframes ju-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes ju-draw { from { opacity: 0; transform: scale(0.86); } to { opacity: 1; transform: none; } }
 @keyframes ju-pulse { 0%, 100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 1; transform: scale(1.28); } }
-@keyframes ju-drift { from { transform: translateY(0); } to { transform: translateY(-7px); } }
+@keyframes ju-sweep { from { transform: translateX(-100%); opacity: 0; } 30% { opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+@keyframes ju-assemble {
+  from { opacity: 0; transform: translate(calc(-50% + var(--ox, 0px)), calc(-50% + var(--oy, 0px))) scale(0.4); }
+  60% { opacity: var(--a, 0.5); }
+  to { opacity: var(--a, 0.5); transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes ju-node-in { from { opacity: 0; transform: scale(0.2); } to { opacity: 1; transform: scale(1); } }
+@keyframes ju-resolve { from { opacity: 0; filter: blur(14px); letter-spacing: 0.1em; } to { opacity: 0.74; filter: blur(0); letter-spacing: -0.06em; } }
+@keyframes ju-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes ju-type { from { max-width: 0; } to { max-width: 100%; } }
+@keyframes ju-run { from { left: 0; opacity: 0; } 10% { opacity: 1; } to { left: 100%; opacity: 1; } }
+@keyframes ju-state-on {
+  from { color: var(--ju-muted); border-color: var(--ju-line); }
+  to { color: var(--ju-paper); border-color: var(--ju-mint); }
+}
+@keyframes ju-state-dot-on { from { background: var(--ju-muted); } to { background: var(--ju-mint); } }
+@keyframes ju-breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes ju-text-settle { from { transform: translateY(4px); } to { transform: translateY(0); } }
 
 .js-reveal .reveal { opacity: 0; }
 .js-reveal .reveal.is-in { animation: ju-rise 0.62s var(--ease) forwards; }
 
+/* Hero copy is driven by the is-sequenced timeline below, not by the generic
+   .reveal path. The hero runs a five-beat sequence and must not be
+   double-animated by the scroll observer, so it opts out of .reveal entirely. */
+.js-reveal .hero-copy > * { opacity: 1; }
+
+/* ── hero sequence: APPEAR (sparse dots) → ASSEMBLE (portrait) → nodes →
+   JU resolves → text settles. Deterministic: every delay is derived from
+   the dot's grid position in portal.js, never from Math.random(). ── */
+.hero.is-sequenced .portrait-dot {
+  animation: ju-assemble 0.9s var(--ease) both;
+  animation-delay: var(--d, 0s);
+}
+.hero.is-sequenced .signal-node { animation: ju-node-in 0.5s var(--ease) both, ju-pulse 3.4s ease-in-out 2.6s infinite; }
+.hero.is-sequenced .signal-node-a { animation-delay: 1.5s, 2.6s; }
+.hero.is-sequenced .signal-node-b { animation-delay: 1.65s, 3.1s; }
+.hero.is-sequenced .signal-node-c { animation-delay: 1.8s, 3.7s; }
+.hero.is-sequenced .signal-resolve { animation: ju-node-in .65s var(--ease) 1.7s both; }
+.hero.is-sequenced .hero-copy > * { animation: ju-text-settle 0.45s var(--ease) both; }
+.hero.is-sequenced .hero-copy > :nth-child(1) { animation-delay: 2.25s; }
+.hero.is-sequenced .hero-copy > :nth-child(2) { animation-delay: 2.35s; }
+.hero.is-sequenced .hero-copy > :nth-child(3) { animation-delay: 2.45s; }
+.hero.is-sequenced .hero-copy > :nth-child(4) { animation-delay: 2.55s; }
+.hero.is-sequenced .hero-copy > :nth-child(5) { animation-delay: 2.65s; }
+.hero.is-sequenced .hero-copy > :nth-child(n + 6) { animation-delay: 2.75s; }
+/* Idle motion lives only in the hero: the lime nodes breathe, nothing else loops. */
 .signal-node { animation: ju-pulse 3.4s ease-in-out infinite; }
 .signal-node-b { animation-delay: 0.5s; }
 .signal-node-c { animation-delay: 1.1s; }
-.signal-word { animation: ju-drift 7s ease-in-out infinite alternate; }
+
+/* ── story bands: scroll-triggered, play once, end in the resolved state. ── */
+.js-reveal .story-figure .story-dot { opacity: 0; }
+.js-reveal .story-figure.is-in .story-dot { animation: ju-draw 0.6s var(--ease) both; animation-delay: var(--d, 0s); }
+.js-reveal .story-rule { transform: scaleX(0); }
+.js-reveal .story-body.is-in .story-rule, .js-reveal .is-in .story-rule { animation: ju-grow 0.9s var(--ease) 0.3s both; }
+
+.js-reveal .beat-visual-human .story-dot { opacity: 0; }
+.js-reveal .beat-visual-human.is-live .story-dot { animation: ju-draw 0.5s var(--ease) both; animation-delay: var(--d, 0s); }
+.js-reveal .beat-visual-human .prompt-text { max-width: 0; }
+.js-reveal .beat-visual-human.is-live .prompt-text { animation: ju-type 1.3s steps(18, end) 0.7s both; }
+.js-reveal .beat-visual-human .signal-runner { opacity: 0; }
+.js-reveal .beat-visual-human.is-live .signal-runner { animation: ju-run 1.4s var(--ease) 2.1s both; }
+
+/* States start dark and light up one by one: Planning → Generating → Building → Testing. */
+.js-reveal .beat-visual-ai:not(.is-live) .chip.state { color: var(--ju-muted); border-color: var(--ju-line); }
+.js-reveal .beat-visual-ai:not(.is-live) .chip.state .state-dot { background: var(--ju-muted); }
+.js-reveal .beat-visual-ai.is-live .chip.state { animation: ju-state-on 0.4s var(--ease) both; animation-delay: calc(0.5s + var(--i, 0) * 0.55s); }
+.js-reveal .beat-visual-ai.is-live .chip.state .state-dot { animation: ju-state-dot-on 0.4s var(--ease) both; animation-delay: calc(0.5s + var(--i, 0) * 0.55s); }
+.js-reveal .beat-visual-ai .work-line { transform: scaleX(0); }
+.js-reveal .beat-visual-ai.is-live .work-line { animation: ju-grow 2.4s var(--ease) 0.4s both; }
 
 /* ══ responsive ═════════════════════════════════════════════ */
 
@@ -605,9 +887,21 @@ body.is-locked { overflow: hidden; }
 
   .main { margin-left: 0; max-width: 100%; padding: 0 var(--pad); }
 
-  .hero { grid-template-columns: 1fr; gap: 28px; min-height: 0; padding: 40px 0 44px; }
-  .hero-signal { aspect-ratio: 1 / 0.86; order: -1; }
-  .signal-word { font-size: clamp(76px, 25vw, 150px); }
+  .hero { grid-template-columns: 1fr; gap: 20px; min-height: 0; padding: 32px 0 44px; }
+  /* Portrait stays visible but subordinate: shorter field above the copy. */
+  .hero-signal { aspect-ratio: 1 / 0.62; order: -1; max-height: 300px; }
+  .portrait-dots {
+    -webkit-mask-image: radial-gradient(48% 78% at 36% 50%, #000 32%, rgba(0, 0, 0, 0.6) 60%, transparent 90%);
+    mask-image: radial-gradient(48% 78% at 36% 50%, #000 32%, rgba(0, 0, 0, 0.6) 60%, transparent 90%);
+  }
+  .signal-resolve { width: 64px; right: 4%; bottom: 10%; }
+  .hero-title { font-size: clamp(25px, 7.4cqi, 34px); }
+
+  .story-figure { display: none; }
+  .story-cols { grid-template-columns: 1fr; }
+  .beat { grid-template-columns: 1fr; gap: 18px; }
+  .beat-visual { min-height: 190px; }
+  .prompt { font-size: 14px; }
 
   .heroProduct { grid-template-columns: 1fr; }
   .foot-year { margin-left: 0; }
@@ -616,6 +910,14 @@ body.is-locked { overflow: hidden; }
 @media (max-width: 420px) {
   .display { font-size: 26px; }
   .detail-title { font-size: 24px; }
+  .hero-title { font-size: 25px; }
+  .story-title { font-size: 25px; }
+}
+
+/* Touch / coarse pointer: no pointer-follow, interactions still reveal. */
+@media (hover: none) {
+  .portrait-dots, .signal-resolve { transform: none; }
+  .tile-signal circle { transform: none; }
 }
 
 /* ══ reduced motion: finished state, not absence ═════════════ */
@@ -623,10 +925,40 @@ body.is-locked { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
+    animation: none !important;
+    transition: none !important;
   }
   .js-reveal .reveal { opacity: 1 !important; }
-  .portrait-dot { opacity: 0.42 !important; }
+  /* Fully resolved state, immediately: portrait, symbol, nodes, copy, states. */
+  .hero.is-sequenced .portrait-dot,
+  .hero.is-sequenced .signal-node,
+  .hero.is-sequenced .signal-resolve,
+  .hero.is-sequenced .hero-copy > *,
+  .js-reveal .story-dot,
+  .js-reveal .story-rule,
+  .js-reveal .prompt-text,
+  .js-reveal .signal-runner,
+  .js-reveal .work-line,
+  .js-reveal .chip.state,
+  .js-reveal .chip.state .state-dot,
+  .tile-sweep,
+  .tile-signal circle { animation: none !important; }
+  .portrait-dot { opacity: var(--a, 0.5) !important; transform: translate(-50%, -50%) !important; }
+  .signal-node { opacity: 1 !important; }
+  .signal-resolve { opacity: .76 !important; }
+  .story-dot { opacity: var(--a, 0.5) !important; }
+  .story-rule, .work-line { transform: scaleX(1) !important; }
+  .prompt-text { max-width: 100% !important; }
+  .signal-runner { opacity: 1 !important; }
+  .js-reveal .beat-visual-ai .chip.state { color: var(--ju-paper) !important; border-color: var(--ju-mint) !important; }
+  .js-reveal .beat-visual-ai .chip.state .state-dot { background: var(--ju-mint) !important; }
+  .portrait-dots, .signal-resolve, .tile-signal circle { transform: none !important; }
+}
+
+/* Desktop authored Korean lines stay intact; smaller screens wrap only at spaces. */
+@media (min-width: 861px) {
+  .hero-title > span { white-space: nowrap; word-break: keep-all; }
+}
+@media (max-width: 860px) {
+  .hero-title > span { white-space: normal; word-break: keep-all; }
 }

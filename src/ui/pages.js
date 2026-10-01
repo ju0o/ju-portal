@@ -72,7 +72,8 @@ function productTile(p) {
   const href = `/products/${p.slug}/`;
   const tags = [...platformTags(p), action.version].filter(Boolean);
 
-  return `<article class="tile">
+  return `<article class="tile" data-tile>
+  <span class="tile-sweep" aria-hidden="true"></span>
   <a href="${href}" data-showroom="${esc(p.slug)}" aria-label="${esc(p.title)} 자세히 보기">
     <div class="tile-media">${mediaFrame(p)}</div>
   </a>
@@ -116,16 +117,16 @@ function skillTile(s) {
  * the hierarchy stays headline -> interaction -> products.
  */
 function hero() {
-  return `<section class="hero" data-section="top">
+  return `<section class="hero" data-section="top" data-hero>
   <div class="hero-copy">
-    <p class="label">JU · HUMAN × AI × TOOLS</p>
-    <h1 class="display hero-title">
-      <span>비개발자의 생각이 말이 되고,</span>
-      <span>말이 AI의 작업이 되고,</span>
-      <span>그 결과가 다시 사람이 이해할 수 있는</span>
-      <span><em>도구가 됩니다.</em></span>
+    <p class="label">JU · FROM SIGNAL TO TOOL</p>
+    <h1 class="hero-title" lang="ko">
+      <span class="hero-line">비개발자의 생각이 말이 되고,</span>
+      <span class="hero-line">말이 AI의 작업이 되고,</span>
+      <span class="hero-line">그 결과가 다시 사람이 이해할 수 있는</span>
+      <span class="hero-line"><em>도구가 됩니다.</em></span>
     </h1>
-    <p class="hero-sub">생각이 흐르면, AI가 움직입니다.<br>하나씩 나타나고, 점점 형태가 됩니다.</p>
+    <p class="hero-sub">사람의 생각이 신호가 되고, AI의 작업을 거쳐<br>누구나 이해할 수 있는 도구로 이어집니다.</p>
     <form class="command" role="search" data-discovery>
       <input type="search" name="q" placeholder="지금 뭘 하고 싶나요?" aria-label="지금 뭘 하고 싶나요?" autocomplete="off">
       <button type="submit" class="cta">찾아보기</button>
@@ -139,64 +140,169 @@ function hero() {
       <a class="btn" href="/skills/">Skills 보기</a>
     </div>
   </div>
-  <div class="hero-signal" aria-hidden="true">
-    <div class="signal-field"><div class="portrait-dots" data-founder-dots></div></div>
-    <div class="signal-word">JU</div>
+  <div class="hero-signal" aria-hidden="true" data-signal-field>
+    <div class="signal-field">
+      <svg class="signal-paths" viewBox="0 0 480 480" focusable="false">
+        <path d="M52 124 C154 124 136 235 231 235 S329 111 430 111" />
+        <path d="M48 330 C154 330 160 236 231 236 S331 355 430 355" />
+      </svg>
+      <div class="portrait-dots" data-founder-dots></div>
+    </div>
     <span class="signal-node signal-node-a"></span>
     <span class="signal-node signal-node-b"></span>
     <span class="signal-node signal-node-c"></span>
+    <span class="signal-resolve">${signalIcon('')}</span>
+  </div>
+</section>`;
+}
+
+/**
+ * Brand narrative — the approved JU story, told on Home before the products.
+ * Sections 01–03 are pure brand copy with signal visuals; 04 resolves the
+ * story into the real Registry products. No product truth is invented here.
+ */
+function brandValueBand() {
+  return `<section class="band band-story" id="brand" data-section="top" data-story>
+  <div class="band-index"><span class="band-num">01 · BRAND VALUE</span></div>
+  <div class="story-body">
+    <h2 class="story-title" lang="ko">누구나,<br>자신의 아이디어를<br>현실로 만들 수 있는 시대.</h2>
+    <div class="story-rule" aria-hidden="true"></div>
+    <div class="story-cols">
+      <p class="story-text" lang="ko">비개발자도 할 수 있습니다.<br>JU는 생각하는 모든 사람을 위해<br>새로운 창작의 방식을 만듭니다.</p>
+      <ol class="story-list" aria-label="JU가 잇는 것">
+        <li>아이디어</li>
+        <li>콘텐츠</li>
+        <li>도구</li>
+        <li>다시 사람</li>
+      </ol>
+    </div>
+  </div>
+  <div class="story-figure" aria-hidden="true" data-dots="human"></div>
+</section>`;
+}
+
+function youInstructBand() {
+  return `<section class="band band-story" id="instruct" data-section="top" data-story>
+  <div class="band-index"><span class="band-num">02 · YOU INSTRUCT</span></div>
+  <div class="beat">
+    <div>
+      <h2 class="story-title beat-title" lang="ko">당신의 생각을,<br>그냥 말해주세요.</h2>
+      <p class="story-text" lang="ko">코드가 아니라 평소 쓰는 말이면 충분합니다.<br>사람의 신호가 여기서 시작됩니다.</p>
+    </div>
+    <div class="beat-visual beat-visual-human" data-beat>
+      <div class="beat-dots" data-dots="human"></div>
+      <div class="prompt" aria-label="예시 요청">
+        <span class="prompt-example">EXAMPLE · 예시 요청</span>
+        <span class="prompt-cursor" aria-hidden="true">›</span>
+        <span class="prompt-text" data-prompt>내 아이디어를 작은 웹 도구로 만들어줘</span>
+      </div>
+      <span class="signal-track" aria-hidden="true"><i class="signal-runner"></i></span>
+    </div>
+  </div>
+</section>`;
+}
+
+const AI_STATES = ['Planning', 'Generating', 'Building', 'Testing'];
+
+function aiWorksBand() {
+  return `<section class="band band-story" id="works" data-section="top" data-story>
+  <div class="band-index"><span class="band-num">03 · AI WORKS</span></div>
+  <div class="beat">
+    <div>
+      <h2 class="story-title beat-title" lang="ko">AI가 당신의 생각을<br>작업으로 바꿉니다.</h2>
+      <p class="story-text" lang="ko">계획하고, 만들고, 조립하고, 확인합니다.<br>신호가 작업이 되는 과정이 그대로 보입니다.</p>
+    </div>
+    <div class="beat-visual beat-visual-ai" data-beat>
+      <ol class="states" aria-label="AI 작업 단계">
+        ${AI_STATES.map((s, i) => `<li class="chip state" style="--i:${i}"><i class="state-dot" aria-hidden="true"></i>${s}</li>`).join('')}
+      </ol>
+      <span class="work-line" aria-hidden="true"></span>
+    </div>
   </div>
 </section>`;
 }
 
 /**
  * Notification CTA. There is NO subscription backend at V0, so nothing is
- * collected and nothing is discarded: the state is stated honestly instead of
- * shipping an input that silently throws an address away.
+ * collected and nothing is discarded. The field composition is kept only as a
+ * disabled preview that says so; it cannot submit anything.
  */
 function notifyBand() {
   return `<section class="band" data-section="notify">
-  <div class="band-head"><h2 class="title">지금, JU의 다음 소식을<br>가장 먼저 받아보세요.</h2></div>
+  <div class="band-head"><h2 class="title" lang="ko">지금, JU의 다음 소식을<br>가장 먼저 받아보세요.</h2></div>
   <p class="muted" style="margin:0;max-width:46rem">새로운 기능, 제품 업데이트, 그리고 더 큰 가능성에 대한 소식을 전해드립니다.</p>
-  <p class="label" style="margin-top:8px">알림 기능 준비 중</p>
+  <div class="notify-preview" aria-labelledby="notify-state">
+    <span class="notify-field" aria-hidden="true">you@example.com</span>
+    <button class="btn" type="button" disabled aria-disabled="true">알림 받기</button>
+    <p class="label" id="notify-state">알림 기능 준비 중 · 지금은 입력을 받지 않습니다</p>
+  </div>
   <p class="muted" style="margin:0;max-width:46rem;font-size:14px">구독을 받는 서버가 아직 없습니다. 준비되면 이곳에서 이메일을 받고 소식을 전해드리겠습니다.</p>
 </section>`;
 }
 
-export function renderHome({ products, skills, labs, currentPath, overlays = '' }) {
+/** Radar on Home: a thin pointer to the real service, resolved by Infra. */
+function radarBand(radar, num) {
+  const r = radar[0];
+  const action = r ? getPrimaryAction(r) : null;
+  return `<section class="band" id="radar" data-section="radar">
+  <div class="band-head">
+    <div class="band-index"><span class="band-num">${num}</span></div>
+    <div>
+      <h2 class="title">새로운 도구를 발견합니다.</h2>
+      <p>JU가 발견하고 검증하는 새로운 AI / Agent / 개발도구</p>
+    </div>
+  </div>
+  <div class="tile-actions" style="margin:0">
+    ${
+      action?.resolved
+        ? `<a class="btn cta btn-sm" href="${esc(action.href)}" rel="noopener" data-cta data-slug="${esc(r.slug)}" data-verb="${esc(action.verb)}">JU Radar 열어보기</a>`
+        : '<span class="btn is-disabled btn-sm" aria-disabled="true">연결 준비 중</span>'
+    }
+    <a class="btn btn-sm" href="/radar/">자세히</a>
+  </div>
+</section>`;
+}
+
+export function renderHome({ products, skills, labs, radar = [], currentPath, overlays = '' }) {
+  let n = 4;
+  const next = () => String(++n).padStart(2, '0');
   const body = `${hero()}
 
-<section class="band" id="products" data-section="products">
-  <div class="band-head">
-    <div class="band-index"><span class="band-num">01</span></div>
-    <div>
-      <h2 class="title">지금 실제로 써 볼 수 있는 제품</h2>
-      <p>설치하지 않고 바로 열어보거나, 명령 한 줄로 시작하는 도구.</p>
-    </div>
+${brandValueBand()}
+
+${youInstructBand()}
+
+${aiWorksBand()}
+
+<section class="band band-story band-resolve" id="products" data-section="products" data-story>
+  <div class="band-index"><span class="band-num">04 · REAL TOOL</span></div>
+  <div class="story-body">
+    <h2 class="story-title" lang="ko">그리고,<br>당신이 이해할 수 있는<br>도구가 완성됩니다.</h2>
+    <p class="story-text" lang="ko">여기까지가 이야기이고, 아래는 지금 실제로 써 볼 수 있는 제품입니다.<br>설치하지 않고 바로 열어보거나, 명령 한 줄로 시작합니다.</p>
   </div>
   <div class="grid grid-3">${products.map(productTile).join('')}</div>
 </section>
 
-${
-  skills.length
-    ? `<section class="band" id="skills" data-section="skills">
+<section class="band" id="skills" data-section="skills">
   <div class="band-head">
-    <div class="band-index"><span class="band-num">02</span></div>
+    <div class="band-index"><span class="band-num">${next()}</span></div>
     <div>
       <h2 class="title">Skills</h2>
       <p>Agent에게 새로운 능력을 붙여요.</p>
     </div>
   </div>
-  <div class="grid grid-3">${skills.map(skillTile).join('')}</div>
-</section>`
-    : ''
-}
+  ${
+    skills.length
+      ? `<div class="grid grid-3">${skills.map(skillTile).join('')}</div>`
+      : `<div class="empty"><div class="mark">S</div><p>첫 스킬이 준비되면 여기에 표시됩니다.</p><p style="margin-top:12px"><a class="btn btn-sm" href="/skills/">Skills 보기</a></p></div>`
+  }
+</section>
 
 ${
   labs.length
     ? `<section class="band" id="labs" data-section="labs">
   <div class="band-head">
-    <div class="band-index"><span class="band-num">${skills.length ? '03' : '02'}</span></div>
+    <div class="band-index"><span class="band-num">${next()}</span></div>
     <div>
       <h2 class="title">Labs</h2>
       <p>완제품으로 가장하지 않는 연구·실험 공간.</p>
@@ -207,11 +313,13 @@ ${
     : ''
 }
 
+${radarBand(radar, next())}
+
 ${notifyBand()}`;
 
   return layout(
-    'JU — 필요한 도구를 찾고, 바로 써보세요',
-    '바이브코딩 입문자와 비개발자를 위한 JU 공식 제품 포털.',
+    'JU — 생각이 도구가 되는 곳',
+    '누구나 자신의 아이디어를 현실로 만들 수 있는 시대. JU는 사람의 생각을 AI 작업과 이해하기 쉬운 도구로 이어줍니다.',
     currentPath,
     body,
     { overlays },

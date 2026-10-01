@@ -7,6 +7,11 @@
 
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // ---------- Hero: APPEAR -> ASSEMBLE -> RESOLVE ----------
+  var heroSignal = document.querySelector('[data-signal-field]');
+  var hero = document.querySelector('[data-hero]');
+  if (hero && !reduced) hero.classList.add('is-sequenced');
+
   // ---------- copy buttons ----------
   document.querySelectorAll('[data-copy]').forEach(function (btn) {
     btn.addEventListener('click', function () {
@@ -36,24 +41,97 @@
           el.className = 'portrait-dot ' + d.t;
           el.style.left = ((d.x + 0.5) / data.cols * 100).toFixed(3) + '%';
           el.style.top = ((d.y + 0.5) / data.rows * 100).toFixed(3) + '%';
-          el.style.width = d.r + 'px';
-          el.style.height = d.r + 'px';
-          el.style.opacity = d.a;
-          el.style.animation = 'ju-draw .5s var(--ease) backwards';
-          el.style.animationDelay = ((d.x * 0.6 + d.y * 1.1) % 18) * 0.05 + 's';
+          // Slightly enlarge the sampled dots so the human remains legible on
+          // small screens, without changing or shipping the private source.
+          var dotSize = Math.max(2.2, d.r * 2.25);
+          el.style.width = dotSize.toFixed(2) + 'px';
+          el.style.height = dotSize.toFixed(2) + 'px';
+          el.style.setProperty('--a', d.a);
+          el.style.setProperty('--ox', (((d.x + 0.5) / data.cols - 0.5) * 30).toFixed(1) + 'px');
+          el.style.setProperty('--oy', (((d.y + 0.5) / data.rows - 0.5) * 30).toFixed(1) + 'px');
+          el.style.setProperty('--d', reduced ? '0s' : (((d.x * 0.6 + d.y * 1.1) % 18) * 0.045).toFixed(3) + 's');
           frag.appendChild(el);
         }
         portraitHost.appendChild(frag);
+
+        document.querySelectorAll('[data-dots="human"]').forEach(function (host) {
+          var storyFrag = document.createDocumentFragment();
+          for (var j = 0; j < data.dots.length; j += 4) {
+            var source = data.dots[j];
+            var dot = document.createElement('i');
+            dot.className = 'story-dot' + (j % 17 === 0 ? ' is-lime' : '');
+            dot.style.left = ((source.x + 0.5) / data.cols * 100).toFixed(3) + '%';
+            dot.style.top = ((source.y + 0.5) / data.rows * 100).toFixed(3) + '%';
+            dot.style.setProperty('--a', source.a);
+            dot.style.setProperty('--d', reduced ? '0s' : ((source.x * 0.4 + source.y * 0.6) % 14 * 0.045).toFixed(3) + 's');
+            storyFrag.appendChild(dot);
+          }
+          host.appendChild(storyFrag);
+        });
       })
       .catch(function () { portraitHost.remove(); });
   }
 
+  // A small pointer parallax gives the hero signal field a response without a
+  // canvas or continuous animation loop. Touch and reduced-motion are static.
+  if (heroSignal && !reduced && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    var pointerFrame = 0;
+    heroSignal.addEventListener('pointermove', function (event) {
+      if (pointerFrame) return;
+      pointerFrame = window.requestAnimationFrame(function () {
+        var rect = heroSignal.getBoundingClientRect();
+        var dx = (event.clientX - rect.left) / Math.max(1, rect.width) - 0.5;
+        var dy = (event.clientY - rect.top) / Math.max(1, rect.height) - 0.5;
+        heroSignal.style.setProperty('--px', (dx * 8).toFixed(1) + 'px');
+        heroSignal.style.setProperty('--py', (dy * 8).toFixed(1) + 'px');
+        pointerFrame = 0;
+      });
+    }, { passive: true });
+    heroSignal.addEventListener('pointerleave', function () {
+      heroSignal.style.setProperty('--px', '0px');
+      heroSignal.style.setProperty('--py', '0px');
+    }, { passive: true });
+  }
+
+  document.querySelectorAll('[data-beat]').forEach(function (beat) {
+    if (reduced || !('IntersectionObserver' in window)) {
+      beat.classList.add('is-live');
+      return;
+    }
+    var beatObserver = new IntersectionObserver(function (entries) {
+      if (!entries.some(function (entry) { return entry.isIntersecting; })) return;
+      beat.classList.add('is-live');
+      beatObserver.disconnect();
+    }, { threshold: 0.25 });
+    beatObserver.observe(beat);
+  });
+
+  document.querySelectorAll('[data-story]').forEach(function (story) {
+    var figure = story.querySelector('.story-figure');
+    if (!figure) return;
+    if (reduced || !('IntersectionObserver' in window)) {
+      figure.classList.add('is-in');
+      story.querySelectorAll('.story-body').forEach(function (body) { body.classList.add('is-in'); });
+      return;
+    }
+    var storyObserver = new IntersectionObserver(function (entries) {
+      if (!entries.some(function (entry) { return entry.isIntersecting; })) return;
+      figure.classList.add('is-in');
+      story.querySelectorAll('.story-body').forEach(function (body) { body.classList.add('is-in'); });
+      storyObserver.disconnect();
+    }, { threshold: 0.15 });
+    storyObserver.observe(story);
+  });
+
   // ---------- scroll reveal ----------
   // The .js-reveal class is added here, not in CSS, so content is never hidden
   // unless this script is running and able to reveal it again.
+  //
+  // Hero copy is excluded: it is driven by the hero's own five-beat sequence
+  // (is-sequenced), so it must not also be faded in by this observer.
   var revealables = Array.prototype.slice.call(
-    document.querySelectorAll('.hero-copy > *, .band-title, .band-head, .tile, .labrow, .empty')
-  );
+    document.querySelectorAll('.band-title, .band-head, .tile, .labrow, .empty')
+  ).filter(function (el) { return !el.closest('.hero'); });
   if (!reduced && 'IntersectionObserver' in window && revealables.length) {
     document.documentElement.classList.add('js-reveal');
     revealables.forEach(function (el) { el.classList.add('reveal'); });
