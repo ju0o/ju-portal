@@ -47,11 +47,18 @@
   // ---------- founder portrait: derived dot geometry ----------
   // Loaded as separate JSON so the page never carries any raster of the source.
   var portraitHost = document.querySelector('[data-founder-dots]');
+  // Pointer response is per-particle, so the geometry the pointer maths needs is
+  // cached here while the dots are created: normalised source position, its
+  // deterministic tangential sign, and the element itself. Nothing below ever
+  // reads a dot back from the DOM to learn where it is.
+  var portraitDots = null;
   if (portraitHost) {
     fetch('/brand/founder-signal.json')
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var frag = document.createDocumentFragment();
+        var pts = [];
+        var settleAt = 0;
         for (var i = 0; i < data.dots.length; i++) {
           var d = data.dots[i];
           var el = document.createElement('i');
@@ -79,9 +86,33 @@
           var phase = (d.x * 0.6 + d.y * 1.1) % 18;
           var delay = d.t === 'lo' ? phase * 0.02 : 0.35 + phase * 0.05;
           el.style.setProperty('--d', reduced ? '0s' : delay.toFixed(3) + 's');
+          if (!reduced && delay + 0.9 > settleAt) settleAt = delay + 0.9;
           frag.appendChild(el);
+          // Normalised source position (0-1) is enough: the pointer field maps
+          // into the same space, so the portrait stays correct at any size.
+          // The tangential sign is derived from position, not randomness, so
+          // every reload produces the identical field.
+          pts.push({
+            nx: (d.x + 0.5) / data.cols,
+            ny: (d.y + 0.5) / data.rows,
+            spin: (d.x % 2 ? 1 : -1) * ((d.y % 2) ? 1 : -1),
+            el: el,
+            moved: false
+          });
         }
         portraitHost.appendChild(frag);
+        portraitDots = pts;
+
+        // ASSEMBLE owns `transform` with fill:both while it runs, so the
+        // per-dot pointer displacement cannot apply until the last dot has
+        // landed. Releasing the animation hands the transform back to the base
+        // rule at that exact moment; the class is one write on the container,
+        // not 1.7k class removals, and the composed position is identical.
+        if (settleAt) {
+          window.setTimeout(function () {
+            if (hero) hero.classList.add('is-settled');
+          }, settleAt * 1000 + 40);
+        }
 
         // Story figures reuse every 4th dot of the same derived geometry, so
         // the human silhouette in 01/02 is the same signal, sparser.
@@ -99,29 +130,231 @@
           }
           host.appendChild(storyFrag);
         });
+
+        // The pointer field can only be indexed once the particles exist, so it
+        // starts here rather than on script load.
+        startPortraitInteraction();
       })
       .catch(function () { portraitHost.remove(); });
   }
 
-  // A small pointer parallax gives the hero signal field a response without a
-  // canvas or continuous animation loop. Touch and reduced-motion are static.
-  if (heroSignal && !reduced && finePointer) {
-    var pointerFrame = 0;
-    heroSignal.addEventListener('pointermove', function (event) {
-      if (pointerFrame) return;
-      pointerFrame = window.requestAnimationFrame(function () {
+  // ---------- founder portrait: per-particle pointer response ----------
+  // Each dot reacts on its own. The portrait is never translated as one layer:
+  // the field itself stays put and only dots inside the pointer's radius are
+  // displaced, each by an amount that falls off with distance from the pointer.
+  //
+  // Cost control, because this is ~1.7k particles:
+  //   - source coordinates are cached as normalised values at build time, so
+  //     there is no getBoundingClientRect() per dot and no layout read at all;
+  //   - one pointer listener on the field, not one per dot;
+  //   - one rAF per pointer event, and a new frame is only queued when the
+  //     pointer actually moved, so an idle pointer costs nothing;
+  //   - a uniform grid over normalised space is queried first, so a frame only
+  //     ever touches the handful of dots near the pointer rather than all of
+  //     them, and never restarts a transition on a dot it does not affect;
+  //   - a style write happens only when that dot's displacement really changed.
+  // Touch and reduced-motion never reach this block, so the portrait rests at
+  // its resolved positions.
+  var PORTRAIT_RADIUS = 96;   // px at desktop hero scale
+  var PORTRAIT_MAX = 10;      // px, the ceiling for the dot nearest the pointer
+  var PORTRAIT_BUCKETS = 10;  // grid divisions across the field
+
+  function startPortraitInteraction() {
+  if (heroSignal && portraitDots && portraitDots.length && !reduced && finePointer) {
+      // Uniform grid over normalised space. Buckets are rebuilt only if the field
+      // is resized, so pointer frames never touch the geometry again.
+      var CELL = 1 / PORTRAIT_BUCKETS;
+      var fieldW = 0;
+      var fieldH = 0;
+      var grid = null;
+      var radiusN = 0;
+      var active = [];
+      var generation = 0;
+      var pointerFrame = 0;
+
+      /** (Re)measure the field once per layout change and index the particles. */
+      function reindex() {
         var rect = heroSignal.getBoundingClientRect();
-        var dx = (event.clientX - rect.left) / Math.max(1, rect.width) - 0.5;
-        var dy = (event.clientY - rect.top) / Math.max(1, rect.height) - 0.5;
-        heroSignal.style.setProperty('--px', (dx * 8).toFixed(1) + 'px');
-        heroSignal.style.setProperty('--py', (dy * 8).toFixed(1) + 'px');
-        pointerFrame = 0;
-      });
-    }, { passive: true });
-    heroSignal.addEventListener('pointerleave', function () {
-      heroSignal.style.setProperty('--px', '0px');
-      heroSignal.style.setProperty('--py', '0px');
-    }, { passive: true });
+        if (!rect.width || !rect.height) return false;
+        fieldW = rect.width;
+        fieldH = rect.height;
+        radiusN = Math.min(1, PORTRAIT_RADIUS / fieldW);
+        grid = new Array(PORTRAIT_BUCKETS * PORTRAIT_BUCKETS);
+        for (var i = 0; i < portraitDots.length; i++) {
+          var p = portraitDots[i];
+          var b = Math.min(PORTRAIT_BUCKETS - 1, (p.nx / CELL) | 0) +
+                  Math.min(PORTRAIT_BUCKETS - 1, (p.ny / CELL) | 0) * PORTRAIT_BUCKETS;
+          (grid[b] || (grid[b] = [])).push(p);
+        }
+        return true;
+      }
+      // A hidden or zero-size field cannot be measured yet; render() retries on
+      // every pointer frame and re-indexes as soon as it has a size.
+      reindex();
+
+      /** Displace one dot for this frame. Returns true if it is being moved. */
+      function displace(dot, px, py, stamp) {
+        var pdx = px - dot.nx * fieldW;
+        var pdy = py - dot.ny * fieldH;
+        var dist = Math.sqrt(pdx * pdx + pdy * pdy);
+        if (dist >= PORTRAIT_RADIUS) return false;
+        // Squared falloff: the closest dots move the most, the ones near the rim
+        // of the radius barely move, everything past it does not move at all.
+        var prox = 1 - dist / PORTRAIT_RADIUS;
+        var push = prox * prox * PORTRAIT_MAX;
+        if (push < 0.05) return false;
+        var ux = dist > 0.001 ? pdx / dist : 1;
+        var uy = dist > 0.001 ? pdy / dist : 0;
+        // Repulsion plus a small deterministic tangential term, so the field bends
+        // around the pointer instead of only thinning.
+        var spin = dot.spin;
+        var ex = ux * push + uy * spin * push * 0.3;
+        var ey = uy * push - ux * spin * push * 0.3;
+        var sx = ex.toFixed(2) + 'px';
+        var sy = ey.toFixed(2) + 'px';
+        if (dot.dx !== sx || dot.dy !== sy) {
+          dot.dx = sx;
+          dot.dy = sy;
+          dot.el.style.setProperty('--dx', sx);
+          dot.el.style.setProperty('--dy', sy);
+        }
+        dot.moved = true;
+        dot.stamp = stamp;
+        return true;
+      }
+
+      /** Return a dot to its own source position, once. */
+      function clear(dot) {
+        if (!dot.moved) return;
+        dot.moved = false;
+        dot.dx = '0px';
+        dot.dy = '0px';
+        dot.el.style.setProperty('--dx', '0px');
+        dot.el.style.setProperty('--dy', '0px');
+      }
+
+      function render(clientX, clientY) {
+        var rect = heroSignal.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        if (rect.width !== fieldW || rect.height !== fieldH) {
+          if (!reindex()) return;
+          // A resize invalidates the previous frame's active set; settle first so
+          // no dot is left holding a displacement in the old geometry.
+          for (var s = 0; s < active.length; s++) clear(active[s]);
+          active = [];
+        }
+        var px = clientX - rect.left;
+        var py = clientY - rect.top;
+        var stamp = ++generation;
+        var span = Math.ceil(radiusN / CELL);
+        var cx = Math.floor(px / fieldW / CELL);
+        var cy = Math.floor(py / fieldH / CELL);
+        var x0 = Math.max(0, cx - span);
+        var x1 = Math.min(PORTRAIT_BUCKETS - 1, cx + span);
+        var y0 = Math.max(0, cy - span);
+        var y1 = Math.min(PORTRAIT_BUCKETS - 1, cy + span);
+        var seen = [];
+        for (var by = y0; by <= y1; by++) {
+          for (var bx = x0; bx <= x1; bx++) {
+            var bucket = grid[by * PORTRAIT_BUCKETS + bx];
+            if (!bucket) continue;
+            for (var k = 0; k < bucket.length; k++) {
+              var dot = bucket[k];
+              if (displace(dot, px, py, stamp)) seen.push(dot);
+            }
+          }
+        }
+        // Any dot moved last frame but not this one has left the radius, so it
+        // returns to its own source position instead of staying displaced.
+        for (var j = 0; j < active.length; j++) {
+          if (active[j].stamp !== stamp) clear(active[j]);
+        }
+        active = seen;
+        renderMark(clientX, clientY);
+      }
+
+      // The JU Signal Dot Mark gets the same individual-dot treatment, at a
+      // lower amplitude than the portrait. It is never moved as one block.
+      var markHost = heroSignal.querySelector('.signal-resolve .tile-signal');
+      var markDots = [];
+      if (markHost) {
+        Array.prototype.slice.call(markHost.querySelectorAll('circle')).forEach(function (c) {
+          markDots.push({
+            nx: parseFloat(c.getAttribute('cx')) / 240,
+            ny: parseFloat(c.getAttribute('cy')) / 160,
+            el: c,
+            dx: '',
+            dy: ''
+          });
+        });
+      }
+      var MARK_RADIUS = 46;  // viewBox units; the mark is 240x160, so this stays local
+      var MARK_MAX = 3;      // deliberately well under the portrait's 10px
+
+      function renderMark(clientX, clientY) {
+        if (!markDots.length || !markHost) return;
+        var box = markHost.getBoundingClientRect();
+        if (!box.width || !box.height) return;
+        var px = (clientX - box.left) / box.width * 240;
+        var py = (clientY - box.top) / box.height * 160;
+        for (var k = 0; k < markDots.length; k++) {
+          var d = markDots[k];
+          var pdx = px - d.nx * 240;
+          var pdy = py - d.ny * 160;
+          var dist = Math.sqrt(pdx * pdx + pdy * pdy);
+          var sx = '0px';
+          var sy = '0px';
+          if (dist < MARK_RADIUS) {
+            var prox = 1 - dist / MARK_RADIUS;
+            var push = prox * prox * MARK_MAX;
+            var ux = dist > 0.001 ? pdx / dist : 1;
+            var uy = dist > 0.001 ? pdy / dist : 0;
+            sx = (ux * push).toFixed(2) + 'px';
+            sy = (uy * push).toFixed(2) + 'px';
+          }
+          if (d.dx !== sx || d.dy !== sy) {
+            d.dx = sx;
+            d.dy = sy;
+            d.el.style.setProperty('--dx', sx);
+            d.el.style.setProperty('--dy', sy);
+          }
+        }
+      }
+
+      function settleMark() {
+        for (var k = 0; k < markDots.length; k++) {
+          var d = markDots[k];
+          if (d.dx === '0px') continue;
+          d.dx = '0px';
+          d.dy = '0px';
+          d.el.style.setProperty('--dx', '0px');
+          d.el.style.setProperty('--dy', '0px');
+        }
+      }
+
+      function settle() {
+        for (var j = 0; j < active.length; j++) clear(active[j]);
+        active = [];
+        settleMark();
+      }
+
+      heroSignal.addEventListener('pointermove', function (event) {
+        if (pointerFrame) return;
+        pointerFrame = window.requestAnimationFrame(function () {
+          pointerFrame = 0;
+          render(event.clientX, event.clientY);
+        });
+      }, { passive: true });
+
+      heroSignal.addEventListener('pointerleave', settle, { passive: true });
+
+      // The field is a fluid aspect box, so its pixel size changes with the
+      // viewport. Re-index on resize and settle; the next pointermove rebuilds
+      // the field for the new geometry. The particle data itself never changes.
+      window.addEventListener('resize', function () {
+        if (reindex()) settle();
+      }, { passive: true });
+  }
   }
 
   // ---------- story sections 01-04: play once when seen ----------
@@ -129,19 +362,95 @@
     markWhenVisible(story, 'is-in', 0.18);
   });
 
-  // ---------- product tiles: the signal icon leans toward the pointer ----------
-  // Each icon dot is nudged (max 3px) toward the pointer, weighted by distance,
-  // so the mark reacts without a loop. Set per circle as --dx/--dy; CSS owns
-  // the transform and its easing. Touch devices skip this entirely.
+  // ---------- narrative signal figures: the middle tier of the same physics ----
+  // The sparse figures in 01/02 bend around the pointer like the portrait does,
+  // but at half the amplitude: enough to feel like one material, never enough
+  // to compete with the face. One listener per figure, coordinates read from
+  // the DOM once.
+  if (!reduced && finePointer) {
+    var STORY_RADIUS = 62;
+    var STORY_MAX = 4.5;
+    document.querySelectorAll('[data-dots="human"]').forEach(function (host) {
+      var dots = Array.prototype.slice.call(host.querySelectorAll('.story-dot'));
+      if (!dots.length) return;
+      var box0 = host.getBoundingClientRect();
+      var sources = dots.map(function (d) {
+        return {
+          nx: (parseFloat(d.style.left) / 100) * box0.width,
+          ny: (parseFloat(d.style.top) / 100) * box0.height,
+          el: d,
+          dx: '',
+          dy: ''
+        };
+      });
+      var frame = 0;
+      host.addEventListener('pointermove', function (event) {
+        if (frame) return;
+        frame = window.requestAnimationFrame(function () {
+          var rect = host.getBoundingClientRect();
+          if (!rect.width) { frame = 0; return; }
+          var px = event.clientX - rect.left;
+          var py = event.clientY - rect.top;
+          for (var k = 0; k < sources.length; k++) {
+            var s = sources[k];
+            var vx = px - s.nx;
+            var vy = py - s.ny;
+            var dist = Math.sqrt(vx * vx + vy * vy);
+            var sx = '0px';
+            var sy = '0px';
+            if (dist > 0.001 && dist < STORY_RADIUS) {
+              var prox = 1 - dist / STORY_RADIUS;
+              var push = prox * prox * STORY_MAX;
+              sx = ((vx / dist) * push).toFixed(2) + 'px';
+              sy = ((vy / dist) * push).toFixed(2) + 'px';
+            }
+            if (s.dx !== sx || s.dy !== sy) {
+              s.dx = sx;
+              s.dy = sy;
+              s.el.style.setProperty('--dx', sx);
+              s.el.style.setProperty('--dy', sy);
+            }
+          }
+          frame = 0;
+        });
+      }, { passive: true });
+      host.addEventListener('pointerleave', function () {
+        for (var k = 0; k < sources.length; k++) {
+          if (sources[k].dx === '0px') continue;
+          sources[k].dx = '0px';
+          sources[k].dy = '0px';
+          sources[k].el.style.setProperty('--dx', '0px');
+          sources[k].el.style.setProperty('--dy', '0px');
+        }
+      }, { passive: true });
+    });
+  }
+
+  // ---------- product tiles: the signal icon shares the portrait's physics -----
+  // Same material as the hero field, at the weakest strength: each circle
+  // repels the pointer locally (max 1.6px) instead of the mark moving as one
+  // block. Coordinates are read from the SVG viewBox once, so a pointer frame
+  // never touches the DOM. Touch and reduced-motion skip this entirely.
   // Icon micro-assembly on reveal keys off --i, so it is set for every pointer type.
   document.querySelectorAll('.tile .tile-signal').forEach(function (icon) {
     icon.querySelectorAll('circle').forEach(function (c, index) { c.style.setProperty('--i', index); });
   });
   if (!reduced && finePointer) {
+    var ICON_RADIUS = 70;   // viewBox units (the mark is 240x160)
+    var ICON_MAX = 1.6;     // the quietest tier of the same physics
     document.querySelectorAll('.tile .tile-signal').forEach(function (icon) {
       var tile = icon.closest('.tile');
-      var circles = Array.prototype.slice.call(icon.querySelectorAll('circle'));
       if (!tile) return;
+      var circles = Array.prototype.slice.call(icon.querySelectorAll('circle')).map(function (c) {
+        return {
+          nx: parseFloat(c.getAttribute('cx')),
+          ny: parseFloat(c.getAttribute('cy')),
+          el: c,
+          dx: '',
+          dy: ''
+        };
+      });
+      if (!circles.length) return;
       var frame = 0;
       tile.addEventListener('pointermove', function (event) {
         if (frame) return;
@@ -152,22 +461,35 @@
           var px = (event.clientX - box.left) / scale;
           var py = (event.clientY - box.top) / scale;
           for (var k = 0; k < circles.length; k++) {
-            var cx = parseFloat(circles[k].getAttribute('cx'));
-            var cy = parseFloat(circles[k].getAttribute('cy'));
-            var vx = px - cx;
-            var vy = py - cy;
-            var dist = Math.max(1, Math.sqrt(vx * vx + vy * vy));
-            var pull = Math.max(0, 1 - dist / 260) * 3;
-            circles[k].style.setProperty('--dx', ((vx / dist) * pull).toFixed(2) + 'px');
-            circles[k].style.setProperty('--dy', ((vy / dist) * pull).toFixed(2) + 'px');
+            var dot = circles[k];
+            var vx = px - dot.nx;
+            var vy = py - dot.ny;
+            var dist = Math.sqrt(vx * vx + vy * vy);
+            var sx = '0px';
+            var sy = '0px';
+            if (dist > 0.001 && dist < ICON_RADIUS) {
+              var prox = 1 - dist / ICON_RADIUS;
+              var push = prox * prox * ICON_MAX;
+              sx = ((vx / dist) * push).toFixed(2) + 'px';
+              sy = ((vy / dist) * push).toFixed(2) + 'px';
+            }
+            if (dot.dx !== sx || dot.dy !== sy) {
+              dot.dx = sx;
+              dot.dy = sy;
+              dot.el.style.setProperty('--dx', sx);
+              dot.el.style.setProperty('--dy', sy);
+            }
           }
           frame = 0;
         });
       }, { passive: true });
       tile.addEventListener('pointerleave', function () {
         for (var k = 0; k < circles.length; k++) {
-          circles[k].style.setProperty('--dx', '0px');
-          circles[k].style.setProperty('--dy', '0px');
+          if (circles[k].dx === '0px') continue;
+          circles[k].dx = '0px';
+          circles[k].dy = '0px';
+          circles[k].el.style.setProperty('--dx', '0px');
+          circles[k].el.style.setProperty('--dy', '0px');
         }
       }, { passive: true });
     });

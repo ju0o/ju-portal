@@ -86,6 +86,7 @@ a { color: inherit; text-decoration: none; }
 
 .rail-mark {
   display: block; width: 46px;
+  min-height: 44px;
   margin-left: var(--pad); margin-bottom: 40px;
   color: var(--ju-paper);
 }
@@ -195,37 +196,83 @@ a { color: inherit; text-decoration: none; }
 
 /* ══ hero ═══════════════════════════════════════════════════ */
 
+/* One poster, not a column beside an image. The founder field is a full-bleed
+   layer anchored to the right edge; the copy sits on top of it, so the type and
+   the portrait share the same space and the composition reads as one object.
+   The overlap is deliberate negative space, not collision: the field's own
+   radial mask dissolves its left edge exactly where the headline runs. */
 .hero {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.32fr) minmax(0, 0.68fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: clamp(20px, 3vw, 40px);
-  min-height: 78svh;
-  padding: clamp(48px, 6vw, 86px) 0 clamp(40px, 5vw, 64px);
+  min-height: min(92svh, 900px);
+  padding: clamp(56px, 7vw, 104px) 0 clamp(44px, 5vw, 72px);
+  isolation: isolate;
+}
+
+/* The portrait bleeds past the right edge and behind the type. It is behind the
+   copy in stacking order, and never boxed: no border, no panel, no radius.
+   Sizing keeps the whole face in frame at the desktop hero scale rather than
+   cropping the crown, while still letting the field run off the right edge.
+   The field itself must receive pointer events: the per-particle displacement
+   is driven by a listener on this element. The decorative children below are
+   individually non-interactive, and the copy sits above at z-index 1 so its
+   links and the search field still take clicks. */
+.hero-signal {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  right: -3%;
+  transform: translateY(-50%);
+  width: min(56vw, 700px);
+  aspect-ratio: 1 / 1.08;
 }
 
 .hero-copy {
-  display: flex; flex-direction: column; gap: 22px;
-  max-width: 780px;
+  position: relative;
+  z-index: 1;
+  display: flex; flex-direction: column; gap: clamp(18px, 2vw, 26px);
+  max-width: 720px;
   container-type: inline-size;
 }
+
+/* The spaced wordmark is the concept's poster signature: the system named in
+   mono, sitting in the composition's own negative space below the symbol. */
+.hero-wordmark {
+  position: absolute;
+  pointer-events: none;
+  left: 50%; bottom: 2%;
+  transform: translateX(-50%);
+  margin: 0;
+  display: flex; align-items: center; gap: 0.5em;
+  font-family: var(--mono);
+  font-size: 11px; letter-spacing: 0.62em; text-indent: 0.62em;
+  color: var(--ju-muted);
+  white-space: nowrap;
+}
+.hero-wordmark span { color: var(--ju-lime); }
 
 /* Hero headline.
    Each authored line is its own block. `keep-all` stops Korean splitting
    inside a word (생|각이). `text-wrap: balance` is deliberately NOT used: it
    re-balances lines inside each block and was the actual cause of the mid-word
    break. `nowrap` holds each authored line on one row and lets the fluid size
-   below shrink to fit rather than break a word. */
+   below shrink to fit rather than break a word.
+   The scale step is deliberate editorial contrast: the display statement is the
+   largest object on the page by a wide margin, and the mono label above it is
+   the smallest. */
 .hero-title {
   margin: 0;
-  font-size: clamp(21px, 4.6cqi, 44px);
-  line-height: 1.16;
-  letter-spacing: -0.035em;
+  font-size: clamp(23px, 5.4cqi, 58px);
+  line-height: 1.1;
+  letter-spacing: -0.045em;
   font-weight: 800;
   word-break: keep-all;
   overflow-wrap: normal;
   line-break: strict;
   max-width: 100%;
+  text-shadow: 0 2px 40px rgba(7, 8, 11, 0.92);
 }
 /* Desktop: each authored line is one row. The <=860px block below switches to
    normal wrapping; keep-all is inherited so a wrap can only happen at a space. */
@@ -240,56 +287,72 @@ a { color: inherit; text-decoration: none; }
 
 .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
-/* ── discovery (DESIGN_CONTRACT §4, JU Signal treatment) ── */
+/* ── discovery (DESIGN_CONTRACT §4, JU Signal treatment) ──
+   One quiet line, not a control cluster. The field is a rule, the hints become
+   mono keywords under it. Same input, same submit, same hints, same results. */
+
+.hero-discover { display: flex; flex-direction: column; gap: 12px; max-width: 560px; }
 
 .command {
-  display: flex; gap: 10px;
-  max-width: 640px;
-  background: var(--ju-panel);
-  border: 1px solid var(--ju-line);
-  padding: 8px 8px 8px 4px;
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+  display: flex; align-items: center; gap: 12px;
+  max-width: 100%;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--ju-line);
+  padding: 0 0 10px;
+  transition: border-color 0.25s var(--ease);
 }
+.command:focus-within { border-bottom-color: var(--ju-lime); }
 
 .command input {
   flex: 1; min-width: 0;
   background: transparent; border: 0; outline: 0;
   color: var(--ju-paper);
-  padding: 12px 14px;
-  font: inherit; font-size: 16px;
+  padding: 6px 0;
+  font: inherit; font-size: 17px;
 }
 .command input::placeholder { color: var(--ju-muted); }
 
 .command button {
   display: inline-flex; align-items: center; justify-content: center;
-  min-height: 44px;
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
   background: var(--ju-lime); color: var(--ju-black);
-  border: 0; border-radius: 11px;
-  padding: 0 18px;
-  font: inherit; font-size: 14px; font-weight: 800;
+  border: 0; border-radius: 50%;
+  font: inherit; font-size: 18px; font-weight: 800;
   cursor: pointer;
-  transition: background 0.2s var(--ease);
+  transition: background 0.2s var(--ease), transform 0.2s var(--ease);
 }
-.command button:hover { background: var(--ju-paper); }
+.command button:hover { background: var(--ju-paper); transform: translateX(2px); }
 
-.hints { display: flex; flex-wrap: wrap; gap: 8px; max-width: 640px; }
+/* Hints read as a run of mono keywords separated by rules, the same metadata
+   voice used elsewhere on the page. They stay real buttons on a 44px row. */
+.hints {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 4px 0;
+  max-width: 100%;
+}
 
 .hint {
-  font: inherit; font-size: 12px;
+  font-family: var(--mono);
+  font-size: 11.5px; letter-spacing: 0.06em;
   color: var(--ju-muted);
-  background: var(--ju-panel);
-  border: 1px solid var(--ju-line);
-  border-radius: 999px;
-  padding: 7px 12px;
+  background: none;
+  border: 0;
+  padding: 6px 0;
   min-height: 44px;
   cursor: pointer;
-  transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+  transition: color 0.2s var(--ease);
 }
-.hint:hover { color: var(--ju-paper); border-color: var(--ju-muted); }
+.hint + .hint::before {
+  content: '·';
+  margin: 0 9px;
+  color: var(--ju-line);
+}
+.hint:hover { color: var(--ju-paper); }
 
 .banner {
-  max-width: 640px;
+  max-width: 100%;
   margin-top: 2px;
   border: 1px solid #31554d;
   background: #10231f;
@@ -304,14 +367,11 @@ a { color: inherit; text-decoration: none; }
 .banner a { color: var(--ju-lime); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 
 /* Founder portrait: derived dot geometry, background-integrated, unboxed.
-   Raw source never reaches the site. */
-.hero-signal {
-  position: relative; aspect-ratio: 1 / 1.08;
-  --px: 0px; --py: 0px; /* pointer parallax offsets, set by portal.js */
-}
-
+   Raw source never reaches the site. The field itself is positioned with the
+   hero poster above; nothing here re-boxes it. */
 .signal-field {
   position: absolute; inset: 0;
+  pointer-events: none;
   background:
     radial-gradient(55% 48% at 38% 36%, rgba(242, 241, 234, 0.045), transparent 72%),
     radial-gradient(50% 45% at 78% 78%, rgba(216, 255, 79, 0.06), transparent 70%),
@@ -321,22 +381,26 @@ a { color: inherit; text-decoration: none; }
 /* Dot size/alpha come from the derived geometry via portal.js (inline
    width/height and --a). The mask stays closest-side so the field cannot
    end in a rectangle, but the opaque core is wide enough that the eyes,
-   nose, mouth and jaw are not dissolved. */
+   nose, mouth and jaw are not dissolved.
+   The field itself never moves: each dot carries its own --dx/--dy pointer
+   displacement, so the response is per-particle and local. */
 .portrait-dots {
   position: absolute; inset: 0;
-  transform: translate(var(--px), var(--py));
   /* closest-side: the ellipse always ends inside the field, so every edge of
-     the dot grid is fully transparent and no rectangle can show. */
-  -webkit-mask-image: radial-gradient(closest-side at 50% 46%, #000 58%, rgba(0, 0, 0, 0.65) 80%, transparent 100%);
-  mask-image: radial-gradient(closest-side at 50% 46%, #000 58%, rgba(0, 0, 0, 0.65) 80%, transparent 100%);
-  opacity: 0.92;
-  transition: transform 0.6s var(--ease);
+     the dot grid is fully transparent and no rectangle can show. The core is
+     held opaque out to 70% so the face keeps its structure against type. */
+  -webkit-mask-image: radial-gradient(closest-side at 50% 46%, #000 70%, rgba(0, 0, 0, 0.7) 88%, transparent 100%);
+  mask-image: radial-gradient(closest-side at 50% 46%, #000 70%, rgba(0, 0, 0, 0.7) 88%, transparent 100%);
+  opacity: 1;
 }
 
 .portrait-dot {
   position: absolute; border-radius: 50%;
   opacity: var(--a, 0.5);
-  transform: translate(-50%, -50%);
+  /* Centring plus this dot's own pointer displacement (set by portal.js).
+     The easing is short so the field feels responsive but still settles. */
+  transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px)));
+  transition: transform 0.28s var(--ease);
 }
 .portrait-dot.hi { background: var(--ju-paper); }
 .portrait-dot.mid { background: #c9c8bf; }
@@ -344,20 +408,20 @@ a { color: inherit; text-decoration: none; }
 
 /* Signal paths: two dotted lime lines that cross the field behind the
    portrait, read as the signal travelling. They draw in during RESOLVE. */
-.signal-paths { position: absolute; inset: 0; width: 100%; height: 100%; }
+.signal-paths { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .signal-paths path {
   fill: none; stroke: rgba(216, 255, 79, 0.28); stroke-width: 1;
   stroke-dasharray: 2 9; stroke-linecap: round;
 }
 
 /* The JU Signal Dot Mark is the primary symbol; it resolves out of the empty
-   side of the field, low-right, so it never covers the face. */
+   side of the field, low-right, so it never covers the face. The mark is not
+   moved as one block: portal.js gives each of its circles its own --dx/--dy,
+   at a lower amplitude than the portrait. */
 .signal-resolve {
   position: absolute; right: 2%; bottom: 6%;
   width: clamp(68px, 9vw, 126px);
   color: var(--ju-paper);
-  transform: translate(calc(var(--px) * -0.8), calc(var(--py) * -0.8));
-  transition: transform 0.6s var(--ease);
 }
 /* Resting opacity lives on the inner mark so the resolve keyframe (which ends
    at opacity 1 on the wrapper) does not override it. */
@@ -380,14 +444,17 @@ a { color: inherit; text-decoration: none; }
    the copy. An absolutely-positioned decorative layer always overlaps its
    siblings' boxes, which reads as a real overlap in layout auditing even when
    nothing is visually colliding. */
+/* Narrative bands are scenes, not sections: the tall editorial whitespace is
+   what makes one idea land per screen. */
 .band-story {
   position: relative;
   gap: 24px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
   align-items: start;
+  padding: clamp(72px, 11vw, 168px) 0;
 }
-.band-story .band-index { grid-column: 1 / -1; }
+.band-story .band-index { grid-column: 1 / -1; padding-bottom: 4px; }
 .band-story .story-body { grid-column: 1; }
 .band-story .story-figure { grid-column: 2; }
 .band-story > .beat, .band-story > .grid { grid-column: 1 / -1; }
@@ -441,7 +508,8 @@ a { color: inherit; text-decoration: none; }
   width: 4px; height: 4px;
   background: var(--ju-paper);
   opacity: var(--a, 0.5);
-  transform: translate(-50%, -50%);
+  transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px)));
+  transition: transform 0.3s var(--ease);
 }
 .story-dot.is-lime { background: var(--ju-lime); }
 
@@ -455,26 +523,44 @@ a { color: inherit; text-decoration: none; }
 .beat > div:first-child { display: flex; flex-direction: column; gap: 18px; }
 .beat-title { font-size: clamp(24px, 2.6vw, 38px); }
 
+/* The visual is not a panel. The objects float on the page background with a
+   hairline and a soft field glow instead of a bordered card with a grid, so the
+   section reads as type + line + signal rather than a box inside a band. */
 .beat-visual {
   position: relative; min-height: 220px;
-  border-radius: 6px; overflow: hidden;
+  overflow: hidden;
   background:
-    linear-gradient(90deg, rgba(43, 43, 40, 0.5) 1px, transparent 1px) 0 0 / 28px 28px,
     radial-gradient(70% 80% at 30% 50%, rgba(141, 246, 220, 0.05), transparent 72%);
 }
-.beat-dots { position: absolute; inset: 0; }
+.beat-visual::before {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ju-line) 18%, var(--ju-line) 82%, transparent);
+}
+/* The figure sits behind the prompt, so it is held well back: smaller, dimmer,
+   and masked so its centre clears the text it sits behind. */
+.beat-dots {
+  position: absolute; inset: 0;
+  opacity: 0.34;
+  -webkit-mask-image: radial-gradient(closest-side at 50% 50%, transparent 34%, #000 78%);
+  mask-image: radial-gradient(closest-side at 50% 50%, transparent 34%, #000 78%);
+}
+.beat-dots .story-dot { width: 3px; height: 3px; }
 
+/* The prompt is a single spoken line, not a form. It keeps a hairline because
+   it is a real quoted instruction, but drops the panel fill and radius so it
+   sits in the same space as the signal it produces. It rides above the figure. */
 .prompt {
   position: absolute; left: 24px; right: 24px; top: 50%;
   transform: translateY(-50%);
+  z-index: 1;
   display: flex; align-items: center; gap: 10px;
-  padding: 14px 16px;
-  border: 1px solid var(--ju-line);
-  border-radius: 8px;
-  background: var(--ju-black);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ju-line);
   font-size: 15px; color: var(--ju-paper);
 }
-.prompt-example { position: absolute; left: 16px; top: -8px; padding: 0 6px; background: var(--ju-black); color: var(--ju-lime); }
+.prompt-example { position: absolute; left: 0; top: -16px; padding: 0; background: none; color: var(--ju-lime); }
 .prompt-cursor { color: var(--ju-lime); font-weight: 800; }
 .prompt-text { white-space: nowrap; overflow: hidden; }
 .signal-track {
@@ -792,6 +878,12 @@ body.is-locked { overflow: hidden; }
 
 @keyframes ju-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes ju-draw { from { opacity: 0; transform: scale(0.86); } to { opacity: 1; transform: none; } }
+/* The dot draw must keep each dot's own pointer displacement in its end state,
+   or the filled animation would hold `transform: none` over it forever. */
+@keyframes ju-dot-draw {
+  from { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(0.86); }
+  to { opacity: 1; transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))); }
+}
 @keyframes ju-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
 @keyframes ju-sweep { from { transform: translateX(-100%); opacity: 0; } 30% { opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
 @keyframes ju-assemble {
@@ -830,6 +922,12 @@ body.is-locked { overflow: hidden; }
   animation: ju-assemble 0.9s var(--ease) both;
   animation-delay: var(--d, 0s);
 }
+/* Once the last dot has landed the ASSEMBLE fill is released, so `transform`
+   belongs to the dot itself and its pointer displacement can take over. The
+   keyframe's end state is the same position the base rule resolves to, so
+   releasing it is visually a no-op. portal.js adds this from the same derived
+   delays, not a hardcoded constant. */
+.hero.is-sequenced.is-settled .portrait-dot { animation: none; }
 .hero.is-sequenced .signal-paths { animation: ju-fade-in 0.8s var(--ease) 1.6s both; }
 .hero.is-sequenced .signal-node { animation: ju-node-in 0.5s var(--ease) both, ju-pulse 3.4s ease-in-out infinite; }
 .hero.is-sequenced .signal-node-a { animation-delay: 1.9s, 2.4s; }
@@ -852,7 +950,7 @@ body.is-locked { overflow: hidden; }
    Before .is-in the pieces hold their start state; after, they play once and
    stop on the resolved state. Without .js-reveal nothing is ever hidden. ── */
 .js-reveal .band-story .story-dot { opacity: 0; }
-.js-reveal .band-story.is-in .story-dot { animation: ju-draw 0.6s var(--ease) both; animation-delay: var(--d, 0s); }
+.js-reveal .band-story.is-in .story-dot { animation: ju-dot-draw 0.6s var(--ease) both; animation-delay: var(--d, 0s); }
 .js-reveal .band-story .story-rule { transform: scaleX(0); }
 .js-reveal .band-story.is-in .story-rule { animation: ju-grow 0.9s var(--ease) 0.3s both; }
 
@@ -911,17 +1009,27 @@ body.is-locked { overflow: hidden; }
 
   .main { margin-left: 0; max-width: 100%; padding: 0 var(--pad); }
 
-  .hero { grid-template-columns: 1fr; gap: 20px; min-height: 0; padding: 32px 0 44px; }
-  /* Portrait stays visible but subordinate: shorter field above the copy. */
-  .hero-signal { aspect-ratio: 1 / 0.62; order: -1; max-height: 300px; }
+  /* The poster folds to a single stacked composition: the field becomes a
+     shallow band above the copy instead of a right-hand column. */
+  .hero { grid-template-columns: 1fr; gap: 20px; min-height: 0; padding: 26px 0 44px; }
+  .hero-signal {
+    position: relative;
+    top: auto; right: auto; transform: none;
+    order: -1;
+    width: 100%;
+    aspect-ratio: 1 / 0.58;
+    max-height: 300px;
+    margin-bottom: 4px;
+  }
   .portrait-dots {
-    -webkit-mask-image: radial-gradient(closest-side at 50% 48%, #000 52%, rgba(0, 0, 0, 0.6) 78%, transparent 100%);
-    mask-image: radial-gradient(closest-side at 50% 48%, #000 52%, rgba(0, 0, 0, 0.6) 78%, transparent 100%);
+    -webkit-mask-image: radial-gradient(closest-side at 50% 48%, #000 64%, rgba(0, 0, 0, 0.7) 86%, transparent 100%);
+    mask-image: radial-gradient(closest-side at 50% 48%, #000 64%, rgba(0, 0, 0, 0.7) 86%, transparent 100%);
   }
   .signal-resolve { width: 64px; right: 4%; bottom: 10%; }
+  .hero-wordmark { font-size: 10px; letter-spacing: 0.44em; bottom: 0; }
   /* Mobile reflows at phrase boundaries only; keep-all (inherited) still
      forbids a break inside a Korean word. */
-  .hero-title { font-size: clamp(25px, 7.4cqi, 34px); }
+  .hero-title { font-size: clamp(25px, 7.4cqi, 34px); text-shadow: none; }
   .hero-title > span { white-space: normal; }
 
   .story-cols { grid-template-columns: 1fr; }

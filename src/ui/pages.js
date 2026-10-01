@@ -112,42 +112,22 @@ function skillTile(s) {
 }
 
 /**
- * Hero: founder dot texture on the right, intent and actions on the left.
- * Discovery (DESIGN_CONTRACT §4) sits between the headline and the actions, so
- * the hierarchy stays headline -> interaction -> products.
+ * Hero: one poster composition, not a column plus an image. The founder
+ * portrait is a full-bleed signal field the type sits over; the JU Signal
+ * symbol and the mono metadata are separate objects in the same space.
+ * Discovery (DESIGN_CONTRACT §4) sits below the headline as one quiet line,
+ * so the hierarchy stays headline -> interaction -> products.
  *
  * Motion contract (one system, see portal.js / portal.css):
  *   [data-hero]           portal.js adds `.is-sequenced` (normal motion only);
  *                         the CSS timeline APPEAR -> ASSEMBLE -> RESOLVE hangs
  *                         off that single class.
- *   [data-signal-field]   receives --px/--py pointer parallax (fine pointer).
+ *   [data-signal-field]   hosts the pointer field; each dot reacts on its own.
  *   [data-founder-dots]   filled with .portrait-dot from the derived geometry.
  *   .signal-paths / .signal-node / .signal-resolve are timeline participants.
  */
 function hero() {
   return `<section class="hero" data-section="top" data-hero>
-  <div class="hero-copy">
-    <p class="label">JU · FROM SIGNAL TO TOOL</p>
-    <h1 class="hero-title" lang="ko">
-      <span>비개발자의 생각이 말이 되고,</span>
-      <span>말이 AI의 작업이 되고,</span>
-      <span>그 결과가 다시 사람이 이해할 수 있는</span>
-      <span><em>도구가 됩니다.</em></span>
-    </h1>
-    <p class="hero-sub">사람의 생각이 신호가 되고, AI의 작업을 거쳐<br>누구나 이해할 수 있는 도구로 이어집니다.</p>
-    <form class="command" role="search" data-discovery>
-      <input type="search" name="q" placeholder="지금 뭘 하고 싶나요?" aria-label="지금 뭘 하고 싶나요?" autocomplete="off">
-      <button type="submit" class="cta">찾아보기</button>
-    </form>
-    <div class="hints">
-      ${HINTS.map((h) => `<button class="hint" type="button" data-hint="${esc(h)}">${esc(h)}</button>`).join('')}
-    </div>
-    <div class="banner" data-banner role="status" hidden></div>
-    <div class="hero-actions">
-      <a class="btn cta" href="/products/">JU 제품 시작하기 <span aria-hidden="true">→</span></a>
-      <a class="btn" href="/skills/">Skills 보기</a>
-    </div>
-  </div>
   <div class="hero-signal" aria-hidden="true" data-signal-field>
     <div class="signal-field">
       <svg class="signal-paths" viewBox="0 0 480 480" focusable="false">
@@ -160,6 +140,31 @@ function hero() {
     <span class="signal-node signal-node-b"></span>
     <span class="signal-node signal-node-c"></span>
     <span class="signal-resolve">${signalIcon('')}</span>
+    <p class="hero-wordmark">J U <span>SYSTEM</span></p>
+  </div>
+  <div class="hero-copy">
+    <p class="label">JU · FROM SIGNAL TO TOOL</p>
+    <h1 class="hero-title" lang="ko">
+      <span>비개발자의 생각이 말이 되고,</span>
+      <span>말이 AI의 작업이 되고,</span>
+      <span>그 결과가 다시 사람이 이해할 수 있는</span>
+      <span><em>도구가 됩니다.</em></span>
+    </h1>
+    <p class="hero-sub">사람의 생각이 신호가 되고, AI의 작업을 거쳐<br>누구나 이해할 수 있는 도구로 이어집니다.</p>
+    <div class="hero-discover">
+      <form class="command" role="search" data-discovery>
+        <input type="search" name="q" placeholder="지금 뭘 하고 싶나요?" aria-label="지금 뭘 하고 싶나요?" autocomplete="off">
+        <button type="submit" class="cta" aria-label="찾아보기"><span aria-hidden="true">→</span></button>
+      </form>
+      <div class="hints">
+        ${HINTS.map((h) => `<button class="hint" type="button" data-hint="${esc(h)}">${esc(h)}</button>`).join('')}
+      </div>
+      <div class="banner" data-banner role="status" hidden></div>
+    </div>
+    <div class="hero-actions">
+      <a class="btn cta" href="/products/">JU 제품 시작하기 <span aria-hidden="true">→</span></a>
+      <a class="btn" href="/skills/">Skills 보기</a>
+    </div>
   </div>
 </section>`;
 }
