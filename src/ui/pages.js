@@ -72,7 +72,7 @@ function productTile(p) {
   const href = `/products/${p.slug}/`;
   const tags = [...platformTags(p), action.version].filter(Boolean);
 
-  return `<article class="tile" data-tile>
+  return `<article class="tile">
   <span class="tile-sweep" aria-hidden="true"></span>
   <a href="${href}" data-showroom="${esc(p.slug)}" aria-label="${esc(p.title)} 자세히 보기">
     <div class="tile-media">${mediaFrame(p)}</div>
@@ -115,16 +115,24 @@ function skillTile(s) {
  * Hero: founder dot texture on the right, intent and actions on the left.
  * Discovery (DESIGN_CONTRACT §4) sits between the headline and the actions, so
  * the hierarchy stays headline -> interaction -> products.
+ *
+ * Motion contract (one system, see portal.js / portal.css):
+ *   [data-hero]           portal.js adds `.is-sequenced` (normal motion only);
+ *                         the CSS timeline APPEAR -> ASSEMBLE -> RESOLVE hangs
+ *                         off that single class.
+ *   [data-signal-field]   receives --px/--py pointer parallax (fine pointer).
+ *   [data-founder-dots]   filled with .portrait-dot from the derived geometry.
+ *   .signal-paths / .signal-node / .signal-resolve are timeline participants.
  */
 function hero() {
   return `<section class="hero" data-section="top" data-hero>
   <div class="hero-copy">
     <p class="label">JU · FROM SIGNAL TO TOOL</p>
     <h1 class="hero-title" lang="ko">
-      <span class="hero-line">비개발자의 생각이 말이 되고,</span>
-      <span class="hero-line">말이 AI의 작업이 되고,</span>
-      <span class="hero-line">그 결과가 다시 사람이 이해할 수 있는</span>
-      <span class="hero-line"><em>도구가 됩니다.</em></span>
+      <span>비개발자의 생각이 말이 되고,</span>
+      <span>말이 AI의 작업이 되고,</span>
+      <span>그 결과가 다시 사람이 이해할 수 있는</span>
+      <span><em>도구가 됩니다.</em></span>
     </h1>
     <p class="hero-sub">사람의 생각이 신호가 되고, AI의 작업을 거쳐<br>누구나 이해할 수 있는 도구로 이어집니다.</p>
     <form class="command" role="search" data-discovery>
@@ -160,6 +168,10 @@ function hero() {
  * Brand narrative — the approved JU story, told on Home before the products.
  * Sections 01–03 are pure brand copy with signal visuals; 04 resolves the
  * story into the real Registry products. No product truth is invented here.
+ *
+ * Motion contract: every `[data-story]` section gets `.is-in` once from a
+ * single IntersectionObserver in portal.js; all story/beat animations key off
+ * `.band-story.is-in`. `[data-dots="human"]` hosts are filled with .story-dot.
  */
 function brandValueBand() {
   return `<section class="band band-story" id="brand" data-section="top" data-story>
@@ -189,12 +201,12 @@ function youInstructBand() {
       <h2 class="story-title beat-title" lang="ko">당신의 생각을,<br>그냥 말해주세요.</h2>
       <p class="story-text" lang="ko">코드가 아니라 평소 쓰는 말이면 충분합니다.<br>사람의 신호가 여기서 시작됩니다.</p>
     </div>
-    <div class="beat-visual beat-visual-human" data-beat>
+    <div class="beat-visual">
       <div class="beat-dots" data-dots="human"></div>
       <div class="prompt" aria-label="예시 요청">
-        <span class="prompt-example">EXAMPLE · 예시 요청</span>
+        <span class="label prompt-example">Example</span>
         <span class="prompt-cursor" aria-hidden="true">›</span>
-        <span class="prompt-text" data-prompt>내 아이디어를 작은 웹 도구로 만들어줘</span>
+        <span class="prompt-text">내 아이디어를 작은 웹 도구로 만들어줘</span>
       </div>
       <span class="signal-track" aria-hidden="true"><i class="signal-runner"></i></span>
     </div>
@@ -212,7 +224,7 @@ function aiWorksBand() {
       <h2 class="story-title beat-title" lang="ko">AI가 당신의 생각을<br>작업으로 바꿉니다.</h2>
       <p class="story-text" lang="ko">계획하고, 만들고, 조립하고, 확인합니다.<br>신호가 작업이 되는 과정이 그대로 보입니다.</p>
     </div>
-    <div class="beat-visual beat-visual-ai" data-beat>
+    <div class="beat-visual">
       <ol class="states" aria-label="AI 작업 단계">
         ${AI_STATES.map((s, i) => `<li class="chip state" style="--i:${i}"><i class="state-dot" aria-hidden="true"></i>${s}</li>`).join('')}
       </ol>

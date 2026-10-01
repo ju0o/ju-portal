@@ -511,6 +511,39 @@ test('Home motion is deterministic and reduced motion resolves content immediate
   assert.ok(js.includes("'(hover: hover) and (pointer: fine)'"));
 });
 
+test('Home motion hooks form one contract across markup, CSS and JS', () => {
+  // Two builders once collided on this page and left half-wired hooks behind.
+  // Every state class the script toggles must be styled, every data-* hook the
+  // markup carries must be read, and every keyframe must be used.
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+
+  // The single motion/state system.
+  for (const cls of ['is-sequenced', 'is-in', 'is-done', 'js-reveal']) {
+    assert.ok(js.includes(`'${cls}'`), `portal.js must toggle .${cls}`);
+    assert.ok(new RegExp(`\\.${cls}\\b`).test(css), `portal.css must style .${cls}`);
+  }
+  // Retired hooks from the superseded implementation must not come back.
+  for (const dead of ['hero-line', 'data-phase', 'data-beat', 'data-workflow', 'data-work-step', 'signal-word', 'is-live', '--signal-x', '--from-x']) {
+    assert.ok(!html.includes(dead), `home markup still carries retired hook ${dead}`);
+    assert.ok(!css.includes(dead), `portal.css still references retired hook ${dead}`);
+    assert.ok(!js.includes(dead), `portal.js still references retired hook ${dead}`);
+  }
+  // Markup hooks the script depends on.
+  for (const hook of ['data-hero', 'data-signal-field', 'data-founder-dots', 'data-story', 'data-dots="human"']) {
+    assert.ok(html.includes(hook), `home must carry ${hook}`);
+    assert.ok(js.includes(hook.split('=')[0]), `portal.js must read ${hook}`);
+  }
+  // Every keyframe is referenced at least once outside its own definition.
+  for (const name of css.match(/@keyframes (ju-[a-z-]+)/g).map((m) => m.split(' ')[1])) {
+    const uses = css.match(new RegExp(`\\b${name}\\b`, 'g')).length;
+    assert.ok(uses >= 2, `keyframes ${name} is defined but never used`);
+  }
+  // The hero timeline text never disappears: it only settles.
+  assert.ok(!/\.hero\.is-sequenced \.hero-copy > \* \{[^}]*opacity: 0/.test(css), 'hero copy must not be hidden by the timeline');
+});
+
 test('the side rail keeps every production section', () => {
   const html = readFileSync(join(DIST, 'index.html'), 'utf8');
   for (const section of ['top', 'products', 'skills', 'labs', 'radar']) {

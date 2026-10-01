@@ -6,11 +6,28 @@
   'use strict';
 
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  var canObserve = 'IntersectionObserver' in window;
 
-  // ---------- Hero: APPEAR -> ASSEMBLE -> RESOLVE ----------
+  // ---------- motion system (one contract) ----------
+  // Hero:    [data-hero].is-sequenced  -> CSS timeline APPEAR -> ASSEMBLE -> RESOLVE
+  // Story:   [data-story].is-in        -> scroll-once, resolves to the final state
+  // Reveal:  html.js-reveal .reveal.is-in -> generic rise for bands/tiles/rows
+  // Reduced motion never adds .is-sequenced and resolves everything immediately.
   var heroSignal = document.querySelector('[data-signal-field]');
   var hero = document.querySelector('[data-hero]');
   if (hero && !reduced) hero.classList.add('is-sequenced');
+
+  /** Observe once, then mark. Falls back to marking immediately. */
+  function markWhenVisible(el, cls, threshold) {
+    if (reduced || !canObserve) { el.classList.add(cls); return; }
+    var io = new IntersectionObserver(function (entries) {
+      if (!entries.some(function (entry) { return entry.isIntersecting; })) return;
+      el.classList.add(cls);
+      io.disconnect();
+    }, { threshold: threshold });
+    io.observe(el);
+  }
 
   // ---------- copy buttons ----------
   document.querySelectorAll('[data-copy]').forEach(function (btn) {
@@ -47,13 +64,22 @@
           el.style.width = dotSize.toFixed(2) + 'px';
           el.style.height = dotSize.toFixed(2) + 'px';
           el.style.setProperty('--a', d.a);
+          // ASSEMBLE: each dot travels in from a scatter offset derived from its
+          // own grid position. Deterministic: the same dot always takes the
+          // same path.
           el.style.setProperty('--ox', (((d.x + 0.5) / data.cols - 0.5) * 30).toFixed(1) + 'px');
           el.style.setProperty('--oy', (((d.y + 0.5) / data.rows - 0.5) * 30).toFixed(1) + 'px');
-          el.style.setProperty('--d', reduced ? '0s' : (((d.x * 0.6 + d.y * 1.1) % 18) * 0.045).toFixed(3) + 's');
+          // APPEAR: the sparse 'lo' dots land first (0-0.35s); the face ('mid'
+          // and 'hi') assembles after them (0.35-1.25s).
+          var phase = (d.x * 0.6 + d.y * 1.1) % 18;
+          var delay = d.t === 'lo' ? phase * 0.02 : 0.35 + phase * 0.05;
+          el.style.setProperty('--d', reduced ? '0s' : delay.toFixed(3) + 's');
           frag.appendChild(el);
         }
         portraitHost.appendChild(frag);
 
+        // Story figures reuse every 4th dot of the same derived geometry, so
+        // the human silhouette in 01/02 is the same signal, sparser.
         document.querySelectorAll('[data-dots="human"]').forEach(function (host) {
           var storyFrag = document.createDocumentFragment();
           for (var j = 0; j < data.dots.length; j += 4) {
@@ -74,7 +100,7 @@
 
   // A small pointer parallax gives the hero signal field a response without a
   // canvas or continuous animation loop. Touch and reduced-motion are static.
-  if (heroSignal && !reduced && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+  if (heroSignal && !reduced && finePointer) {
     var pointerFrame = 0;
     heroSignal.addEventListener('pointermove', function (event) {
       if (pointerFrame) return;
@@ -93,35 +119,54 @@
     }, { passive: true });
   }
 
-  document.querySelectorAll('[data-beat]').forEach(function (beat) {
-    if (reduced || !('IntersectionObserver' in window)) {
-      beat.classList.add('is-live');
-      return;
-    }
-    var beatObserver = new IntersectionObserver(function (entries) {
-      if (!entries.some(function (entry) { return entry.isIntersecting; })) return;
-      beat.classList.add('is-live');
-      beatObserver.disconnect();
-    }, { threshold: 0.25 });
-    beatObserver.observe(beat);
+  // ---------- story sections 01-04: play once when seen ----------
+  document.querySelectorAll('[data-story]').forEach(function (story) {
+    markWhenVisible(story, 'is-in', 0.18);
   });
 
-  document.querySelectorAll('[data-story]').forEach(function (story) {
-    var figure = story.querySelector('.story-figure');
-    if (!figure) return;
-    if (reduced || !('IntersectionObserver' in window)) {
-      figure.classList.add('is-in');
-      story.querySelectorAll('.story-body').forEach(function (body) { body.classList.add('is-in'); });
-      return;
-    }
-    var storyObserver = new IntersectionObserver(function (entries) {
-      if (!entries.some(function (entry) { return entry.isIntersecting; })) return;
-      figure.classList.add('is-in');
-      story.querySelectorAll('.story-body').forEach(function (body) { body.classList.add('is-in'); });
-      storyObserver.disconnect();
-    }, { threshold: 0.15 });
-    storyObserver.observe(story);
+  // ---------- product tiles: the signal icon leans toward the pointer ----------
+  // Each icon dot is nudged (max 3px) toward the pointer, weighted by distance,
+  // so the mark reacts without a loop. Set per circle as --dx/--dy; CSS owns
+  // the transform and its easing. Touch devices skip this entirely.
+  // Icon micro-assembly on reveal keys off --i, so it is set for every pointer type.
+  document.querySelectorAll('.tile .tile-signal').forEach(function (icon) {
+    icon.querySelectorAll('circle').forEach(function (c, index) { c.style.setProperty('--i', index); });
   });
+  if (!reduced && finePointer) {
+    document.querySelectorAll('.tile .tile-signal').forEach(function (icon) {
+      var tile = icon.closest('.tile');
+      var circles = Array.prototype.slice.call(icon.querySelectorAll('circle'));
+      if (!tile) return;
+      var frame = 0;
+      tile.addEventListener('pointermove', function (event) {
+        if (frame) return;
+        frame = window.requestAnimationFrame(function () {
+          var box = icon.getBoundingClientRect();
+          if (!box.width) { frame = 0; return; }
+          var scale = box.width / 240;
+          var px = (event.clientX - box.left) / scale;
+          var py = (event.clientY - box.top) / scale;
+          for (var k = 0; k < circles.length; k++) {
+            var cx = parseFloat(circles[k].getAttribute('cx'));
+            var cy = parseFloat(circles[k].getAttribute('cy'));
+            var vx = px - cx;
+            var vy = py - cy;
+            var dist = Math.max(1, Math.sqrt(vx * vx + vy * vy));
+            var pull = Math.max(0, 1 - dist / 260) * 3;
+            circles[k].style.setProperty('--dx', ((vx / dist) * pull).toFixed(2) + 'px');
+            circles[k].style.setProperty('--dy', ((vy / dist) * pull).toFixed(2) + 'px');
+          }
+          frame = 0;
+        });
+      }, { passive: true });
+      tile.addEventListener('pointerleave', function () {
+        for (var k = 0; k < circles.length; k++) {
+          circles[k].style.setProperty('--dx', '0px');
+          circles[k].style.setProperty('--dy', '0px');
+        }
+      }, { passive: true });
+    });
+  }
 
   // ---------- scroll reveal ----------
   // The .js-reveal class is added here, not in CSS, so content is never hidden
@@ -146,6 +191,10 @@
       { rootMargin: '0px 0px -8% 0px', threshold: 0.05 }
     );
     revealables.forEach(function (el) { io.observe(el); });
+    document.addEventListener('animationend', function (event) {
+      var el = event.target;
+      if (el.classList && el.classList.contains('reveal') && event.animationName === 'ju-rise') el.classList.add('is-done');
+    });
     setTimeout(function () {
       revealables.forEach(function (el) {
         if (el.getBoundingClientRect().top < window.innerHeight * 2.4) el.classList.add('is-in');
