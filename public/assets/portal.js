@@ -58,9 +58,14 @@
           el.className = 'portrait-dot ' + d.t;
           el.style.left = ((d.x + 0.5) / data.cols * 100).toFixed(3) + '%';
           el.style.top = ((d.y + 0.5) / data.rows * 100).toFixed(3) + '%';
-          // Slightly enlarge the sampled dots so the human remains legible on
-          // small screens, without changing or shipping the private source.
-          var dotSize = Math.max(2.2, d.r * 2.25);
+          // Feature dots stay larger than calm skin so the face reads as a
+          // person. The floor is tiered: one shared floor turned every dot
+          // into the same cloud.
+          var dotSize = d.t === 'hi'
+            ? Math.max(3.4, d.r * 2.55)
+            : d.t === 'mid'
+              ? Math.max(2.3, d.r * 2.1)
+              : Math.max(1.6, d.r * 1.6);
           el.style.width = dotSize.toFixed(2) + 'px';
           el.style.height = dotSize.toFixed(2) + 'px';
           el.style.setProperty('--a', d.a);

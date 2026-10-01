@@ -318,17 +318,17 @@ a { color: inherit; text-decoration: none; }
     radial-gradient(45% 40% at 20% 80%, rgba(141, 246, 220, 0.04), transparent 72%);
 }
 
-/* The derived geometry places the face in the upper-left of the 56x56 grid,
-   so the mask is centred there and the field dissolves outward: no frame, no
-   panel, no edge. Dot size/alpha come from the derived geometry via portal.js
-   (inline width/height and --a). */
+/* Dot size/alpha come from the derived geometry via portal.js (inline
+   width/height and --a). The mask stays closest-side so the field cannot
+   end in a rectangle, but the opaque core is wide enough that the eyes,
+   nose, mouth and jaw are not dissolved. */
 .portrait-dots {
   position: absolute; inset: 0;
   transform: translate(var(--px), var(--py));
   /* closest-side: the ellipse always ends inside the field, so every edge of
      the dot grid is fully transparent and no rectangle can show. */
-  -webkit-mask-image: radial-gradient(closest-side at 36% 44%, #000 22%, rgba(0, 0, 0, 0.6) 58%, transparent 100%);
-  mask-image: radial-gradient(closest-side at 36% 44%, #000 22%, rgba(0, 0, 0, 0.6) 58%, transparent 100%);
+  -webkit-mask-image: radial-gradient(closest-side at 50% 46%, #000 58%, rgba(0, 0, 0, 0.65) 80%, transparent 100%);
+  mask-image: radial-gradient(closest-side at 50% 46%, #000 58%, rgba(0, 0, 0, 0.65) 80%, transparent 100%);
   opacity: 0.92;
   transition: transform 0.6s var(--ease);
 }
@@ -505,7 +505,7 @@ a { color: inherit; text-decoration: none; }
   transform-origin: left;
 }
 
-.band-resolve .grid { margin-top: 8px; }
+.band-resolve > .grid { margin-top: 8px; }
 
 /* ══ notification preview (disabled; no backend) ═══════════ */
 
@@ -566,6 +566,13 @@ a { color: inherit; text-decoration: none; }
 .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
 @media (min-width: 640px) { .grid-2, .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 1024px) { .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* Story 04 has exactly two products. The shared 3-column track left an empty
+   third at desktop, so this band fills the row with two equal columns and
+   stacks on tablet and mobile. */
+.band-resolve > .grid { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1024px) {
+  .band-resolve > .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 .tile {
   position: relative;
@@ -908,8 +915,8 @@ body.is-locked { overflow: hidden; }
   /* Portrait stays visible but subordinate: shorter field above the copy. */
   .hero-signal { aspect-ratio: 1 / 0.62; order: -1; max-height: 300px; }
   .portrait-dots {
-    -webkit-mask-image: radial-gradient(closest-side at 36% 50%, #000 26%, rgba(0, 0, 0, 0.6) 60%, transparent 100%);
-    mask-image: radial-gradient(closest-side at 36% 50%, #000 26%, rgba(0, 0, 0, 0.6) 60%, transparent 100%);
+    -webkit-mask-image: radial-gradient(closest-side at 50% 48%, #000 52%, rgba(0, 0, 0, 0.6) 78%, transparent 100%);
+    mask-image: radial-gradient(closest-side at 50% 48%, #000 52%, rgba(0, 0, 0, 0.6) 78%, transparent 100%);
   }
   .signal-resolve { width: 64px; right: 4%; bottom: 10%; }
   /* Mobile reflows at phrase boundaries only; keep-all (inherited) still
