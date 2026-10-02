@@ -13,7 +13,7 @@ import { createServer } from 'node:http';
 import { readFile, writeFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchBrowser } from '/mnt/f/JuPortal/scripts/cdp.mjs';
+import { launchBrowser } from './cdp.mjs';
 
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
 const PORT = 4399;

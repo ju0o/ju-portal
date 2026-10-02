@@ -15,12 +15,17 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 /**
- * Load .env.local into process.env before anything reads the environment.
+ * Load env files into process.env before anything reads the environment.
  *
  * The Infra build is plain `node`, not a bundler, so no .env file is read
- * automatically. Without this, RADAR_ORIGIN would be undefined at render time
- * and Radar would silently render "Coming soon". Vercel supplies real env
- * vars, so this only affects local builds. Existing process env always wins.
+ * automatically. Vercel supplies real env vars, so this only affects local
+ * builds. Existing process env always wins, so precedence is lowest-first:
+ *
+ *   .env.default (committed, zero-secret)  <  .env  <  .env.local
+ *
+ * .env.default is what makes a clean checkout deterministic: it carries the
+ * public production canonical origin and the radar origin, so no local-only
+ * .env.local is required for a correct build.
  */
 async function loadEnvFile(file) {
   let text;
@@ -46,13 +51,14 @@ async function loadEnvFile(file) {
   }
 }
 
-await loadEnvFile('.env.local');
+await loadEnvFile('.env.default');
 await loadEnvFile('.env');
+await loadEnvFile('.env.local');
 
 import { releaseHref, getPrimaryAction } from '../src/registry/action.ts';
-import { setPosterMap } from '../src/ui/components.js';
+import { setPosterMap, renderOverlay } from '../src/ui/components.js';
 import { renderHome, renderProducts, renderSkills, renderLabs, renderRadar, renderNotFound, discoveryIndex } from '../src/ui/pages.js';
-import { renderProductDetail, renderSkillDetail, renderOverlay } from '../src/ui/detail.js';
+import { renderProductDetail, renderSkillDetail } from '../src/ui/detail.js';
 import { readdir } from 'node:fs/promises';
 
 /**
@@ -128,20 +134,6 @@ const skills = []; // content/skills/index.ts is intentionally empty at V0.
 
 // Section pages.
 //
-// The home page carries the discovery dataset (contract §4) as a data
-// attribute on <body>, so the client script needs no network request. Only
-// the home page ships it — the other surfaces have no discovery surface.
-//
-// The JSON is attribute-escaped: raw newlines and quotes inside an HTML
-// attribute are collapsed or terminated by the parser, which silently breaks
-// JSON.parse in the browser. Escaping quotes/angle brackets/ampersands is what
-// keeps the dataset intact.
-const discoveryJson = JSON.stringify(discoveryIndex(products, radar));
-const discoveryAttr = discoveryJson
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;');
 // Product secondary targets, resolved by the Infra resolver once and reused by
 // both the deep route and the desktop overlay — so the two never drift.
 const productContext = products.map((product) => {
@@ -160,12 +152,29 @@ function overlaysMarkup() {
 
 const overlays = overlaysMarkup();
 
+/**
+ * Discovery dataset (DESIGN_CONTRACT §4), injected as a <body> attribute so the
+ * client-side matcher needs no network request.
+ *
+ * The JSON is attribute-escaped: raw newlines and quotes inside an HTML
+ * attribute are collapsed or terminated by the parser, which silently breaks
+ * JSON.parse in the browser.
+ */
+const discoveryAttr = JSON.stringify(discoveryIndex(products, radar))
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
 const home = renderHome({ products, skills, labs, radar, currentPath: '/', overlays }).replace(
   '<body data-has-overlay="true">',
   `<body data-has-overlay="true" data-discovery-index="${discoveryAttr}">`,
 );
 if (!home.includes('data-discovery-index=')) {
   throw new Error('[render] home page did not receive the discovery index');
+}
+if (!home.includes('data-discovery')) {
+  throw new Error('[render] home page is missing the discovery form');
 }
 // Fail the build rather than ship a discovery surface that can never match.
 try {

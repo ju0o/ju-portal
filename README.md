@@ -38,11 +38,25 @@ The Builder Agent replaces `index.html` with the real application. See
 
 ## Commands
 
+Requires Node 20+. There is no build-time secret and no `.env.local` is needed —
+the public defaults are committed in [`.env.default`](.env.default).
+
 ```bash
-npm run verify         # offline registry validation - the build gate
-npm run verify:links   # network: every CTA target must resolve
-npm run typecheck      # requires typescript
+npm install              # install devDependencies (Playwright, used by browser checks)
+
+npm run build            # verify registry -> assemble dist/ -> render every route
+npm test                 # build contract tests against dist/  (runs build first)
+npm run verify           # offline registry validation - the build gate
+npm run verify:links     # network: every CTA target must resolve
 ```
+
+`npm test` builds `dist/` automatically via `pretest`, so it is safe on a clean
+checkout.
+
+Optional local overrides go in `.env.local` (gitignored, never required):
+`.env.default` < `.env` < `.env.local` < process env. On Vercel,
+`VERCEL_PROJECT_PRODUCTION_URL` is injected at build time and always wins; it is
+the source of truth for canonical / og:url.
 
 ## The two invariants
 

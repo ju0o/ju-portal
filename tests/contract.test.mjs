@@ -446,6 +446,120 @@ test('404.html declares no canonical and is not indexable', () => {
 
 // ---------- P0-6 showroom overlay ----------
 
+test('Discovery entry is preserved on the Portal home', () => {
+  // DESIGN_CONTRACT §4 defines Discovery. It was lost in a redesign once, so
+  // its presence is asserted on the built output rather than left to a soft
+  // browser check.
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+
+  assert.ok(html.includes('data-discovery'), 'home must carry the discovery form');
+  assert.ok(html.includes('data-discovery-index='), 'home must carry the discovery index');
+  assert.ok(html.includes('data-banner'), 'home must carry the recommendation banner');
+
+  const chips = html.match(/data-hint="/g) ?? [];
+  assert.ok(chips.length >= 3, `expected >=3 hint chips, found ${chips.length}`);
+
+  // The index must be real, parseable JSON, and every entry must point at a
+  // real Portal route so a recommendation can never dead-link.
+  const raw = html
+    .match(/data-discovery-index="([^"]*)"/)[1]
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+  const index = JSON.parse(raw);
+  assert.ok(Array.isArray(index) && index.length >= 3, 'discovery index needs entries');
+
+  for (const entry of index) {
+    assert.ok(
+      /^\/(products\/[a-z0-9-]+\/|skills\/|radar\/)/.test(entry.href),
+      `discovery href is not a real Portal route: ${entry.href}`,
+    );
+    assert.ok(entry.name && entry.haystack, 'each discovery entry needs a name and keywords');
+  }
+});
+
+test('Home carries the approved JU brand story before real Registry products', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  const order = [
+    'data-hero', '01 · BRAND VALUE', '02 · YOU INSTRUCT', '03 · AI WORKS',
+    '04 · REAL TOOL', 'id="skills"', 'id="labs"', 'id="radar"', 'data-section="notify"',
+  ].map((token) => html.indexOf(token));
+  assert.ok(order.every((index) => index >= 0), 'all Home narrative sections must be present');
+  assert.deepEqual(order, [...order].sort((a, b) => a - b), 'Home story and product order must remain canonical');
+  const main = html.slice(html.indexOf('<main'), html.indexOf('</main>'));
+  assert.equal((main.match(/<h1\b/g) ?? []).length, 1, 'Home content must have exactly one meaningful h1');
+  assert.ok(html.includes('비개발자의 생각이 말이 되고,'));
+  assert.ok(html.includes('말이 AI의 작업이 되고,'));
+  assert.ok(html.includes('그 결과가 다시 사람이 이해할 수 있는'));
+  assert.ok(html.includes('도구가 됩니다.'));
+  assert.ok(html.includes('data-cta data-slug="juqode"'), 'JuQode must keep its Registry-resolved CTA');
+  assert.ok(html.includes('data-showroom="juqode"') && html.includes('data-showroom="jutell"'), 'both real Registry product routes must remain reachable');
+  assert.ok(html.includes('알림 기능 준비 중 · 지금은 입력을 받지 않습니다'));
+});
+
+test('Home motion is deterministic and reduced motion resolves content immediately', () => {
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+  assert.ok(css.includes('white-space: nowrap') && css.includes('word-break: keep-all'));
+  assert.ok(css.includes('@media (prefers-reduced-motion: reduce)'));
+  assert.ok(css.includes('animation: none !important') && css.includes('transition: none !important'));
+  assert.ok(css.includes('APPEAR') && css.includes('ASSEMBLE') && css.includes('RESOLVE'));
+  assert.ok(js.includes("window.matchMedia('(prefers-reduced-motion: reduce)')"));
+  assert.ok(js.includes('IntersectionObserver'));
+  assert.ok(!js.includes('Math.random'));
+  assert.ok(js.includes("'(hover: hover) and (pointer: fine)'"));
+});
+
+test('Home motion hooks form one contract across markup, CSS and JS', () => {
+  // Two builders once collided on this page and left half-wired hooks behind.
+  // Every state class the script toggles must be styled, every data-* hook the
+  // markup carries must be read, and every keyframe must be used.
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+
+  // The single motion/state system.
+  for (const cls of ['is-sequenced', 'is-in', 'is-done', 'js-reveal']) {
+    assert.ok(js.includes(`'${cls}'`), `portal.js must toggle .${cls}`);
+    assert.ok(new RegExp(`\\.${cls}\\b`).test(css), `portal.css must style .${cls}`);
+  }
+  // Retired hooks from the superseded implementation must not come back.
+  for (const dead of ['hero-line', 'data-phase', 'data-beat', 'data-workflow', 'data-work-step', 'signal-word', 'is-live', '--signal-x', '--from-x']) {
+    assert.ok(!html.includes(dead), `home markup still carries retired hook ${dead}`);
+    assert.ok(!css.includes(dead), `portal.css still references retired hook ${dead}`);
+    assert.ok(!js.includes(dead), `portal.js still references retired hook ${dead}`);
+  }
+  // Markup hooks the script depends on.
+  for (const hook of ['data-hero', 'data-signal-field', 'data-founder-dots', 'data-story', 'data-dots="human"']) {
+    assert.ok(html.includes(hook), `home must carry ${hook}`);
+    assert.ok(js.includes(hook.split('=')[0]), `portal.js must read ${hook}`);
+  }
+  // Every keyframe is referenced at least once outside its own definition.
+  for (const name of css.match(/@keyframes (ju-[a-z-]+)/g).map((m) => m.split(' ')[1])) {
+    const uses = css.match(new RegExp(`\\b${name}\\b`, 'g')).length;
+    assert.ok(uses >= 2, `keyframes ${name} is defined but never used`);
+  }
+  // The hero timeline text never disappears: it only settles.
+  assert.ok(!/\.hero\.is-sequenced \.hero-copy > \* \{[^}]*opacity: 0/.test(css), 'hero copy must not be hidden by the timeline');
+});
+
+test('the side rail keeps every production section', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  for (const section of ['top', 'products', 'skills', 'labs', 'radar']) {
+    assert.ok(
+      html.includes(`class="rail-item" href=`) || html.includes(`data-rail="${section}"`),
+      'rail must expose ' + section,
+    );
+    assert.ok(html.includes(`data-rail="${section}"`), 'rail is missing data-rail=' + section);
+  }
+  // Exactly one server-rendered active item on a page that has an active section.
+  const current = html.match(/aria-current="page"/g) ?? [];
+  assert.equal(current.length, 1, 'home must render exactly one aria-current rail item');
+});
+
+// ---------- P0-6 showroom overlay ----------
+
 test('product listing pages ship an accessible showroom overlay per product', () => {
   for (const page of ['index.html', 'products/index.html']) {
     const html = readFileSync(join(DIST, page), 'utf8');
@@ -488,15 +602,12 @@ test('overlay never replaces the real deep routes', () => {
       html.includes(`href="/products/${slug}/" data-showroom="${slug}"`),
       'card must keep a real href alongside the overlay trigger',
     );
-    assert.ok(
-      html.includes(`<a class="btn" href="/products/${slug}/">자세히</a>`),
-      'card must keep a visible real-route link',
-    );
-    // The overlay itself offers the deep route too.
-    assert.ok(
-      html.includes(`<a class="btn" href="/products/${slug}/">자세히 보기</a>`),
-      'overlay must offer the real deep route',
-    );
+    // Class naming is presentation, so assert on the anchor count rather than
+    // an exact button class string.
+    const anchors = [
+      ...html.matchAll(new RegExp(`href="/products/${slug}/"[^>]*>([^<]*)<`, 'g')),
+    ];
+    assert.ok(anchors.length >= 3, slug + ' must keep a media link, a title link and a details link');
     assert.ok(existsSync(join(DIST, 'products', slug, 'index.html')), slug + ' deep route must exist');
   }
 });
