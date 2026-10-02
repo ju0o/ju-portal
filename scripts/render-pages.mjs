@@ -15,12 +15,17 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 /**
- * Load .env.local into process.env before anything reads the environment.
+ * Load env files into process.env before anything reads the environment.
  *
  * The Infra build is plain `node`, not a bundler, so no .env file is read
- * automatically. Without this, RADAR_ORIGIN would be undefined at render time
- * and Radar would silently render "Coming soon". Vercel supplies real env
- * vars, so this only affects local builds. Existing process env always wins.
+ * automatically. Vercel supplies real env vars, so this only affects local
+ * builds. Existing process env always wins, so precedence is lowest-first:
+ *
+ *   .env.default (committed, zero-secret)  <  .env  <  .env.local
+ *
+ * .env.default is what makes a clean checkout deterministic: it carries the
+ * public production canonical origin and the radar origin, so no local-only
+ * .env.local is required for a correct build.
  */
 async function loadEnvFile(file) {
   let text;
@@ -46,8 +51,9 @@ async function loadEnvFile(file) {
   }
 }
 
-await loadEnvFile('.env.local');
+await loadEnvFile('.env.default');
 await loadEnvFile('.env');
+await loadEnvFile('.env.local');
 
 import { releaseHref, getPrimaryAction } from '../src/registry/action.ts';
 import { setPosterMap, renderOverlay } from '../src/ui/components.js';

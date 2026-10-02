@@ -11,23 +11,34 @@
  * is dropped. Dark features are kept — dropping them is what turned the face
  * into a cloud. The original pixels are not carried over.
  *
- * PRIVACY: the source is copied to an ephemeral Windows temp path so the
- * browser can read it over file://, sampled, then deleted. The path never
- * appears in the output and the file is never staged for git.
+ * PRIVACY: the source is copied to an ephemeral OS temp directory so the
+ * browser can read it over file://, sampled, then the whole directory is
+ * deleted. The path never appears in the output and the file is never staged
+ * for git.
  *
  * Usage: node scripts/derive-portrait.mjs <private-source-path>
  */
-import { copyFile, unlink, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { copyFile, readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { launchBrowser } from '/mnt/f/JuPortal/scripts/cdp.mjs';
+import { tmpdir } from 'node:os';
+import { pathToFileURL } from 'node:url';
+import { launchBrowser } from './cdp.mjs';
 
-const SOURCE = process.argv[2] ?? '/mnt/e/JU_Brand_System/private/founder-source.png';
+const SOURCE = process.argv[2];
+if (!SOURCE) {
+  console.error(
+    'Usage: node scripts/derive-portrait.mjs <private-source-path>\n' +
+      'The private founder photo path is required; this repository ships no default.',
+  );
+  process.exit(1);
+}
 
-// Windows-side temp dir: the browser runs on Windows and cannot read a WSL
-// path. Removed at the end regardless of outcome.
-const WIN_TMP_DIR_WSL = '/mnt/c/Windows/Temp/ju-brand-derive';
-const WIN_TMP_PNG_WSL = '/mnt/c/Windows/Temp/ju-brand-derive/source.png';
-const WIN_TMP_HTML_WSL = '/mnt/c/Windows/Temp/ju-brand-derive/harness.html';
+// Ephemeral OS temp dir. os.tmpdir() resolves per-platform (TMPDIR, %TEMP%, ...)
+// so this works on WSL, native Linux, macOS and Windows without a hardcoded
+// drive path. The private copy is deleted again below regardless of outcome.
+const TMP_DIR = await mkdtemp(join(tmpdir(), 'ju-brand-derive-'));
+const TMP_PNG = join(TMP_DIR, 'source.png');
+const TMP_HTML = join(TMP_DIR, 'harness.html');
 
 const OUTS = [
   join(process.cwd(), 'public/brand/founder-signal.json'),
@@ -39,17 +50,16 @@ const OUTS = [
 const COLS = 56;
 const ROWS = 56;
 
-await mkdir(WIN_TMP_DIR_WSL, { recursive: true });
-await copyFile(SOURCE, WIN_TMP_PNG_WSL);
+await copyFile(SOURCE, TMP_PNG);
 // Chrome refuses file:// subresources unless the document itself is file://,
 // so the sampler is loaded from a harness in the same directory.
-await writeFile(WIN_TMP_HTML_WSL, '<!doctype html><meta charset="utf-8"><title>sampler</title>', 'utf8');
+await writeFile(TMP_HTML, '<!doctype html><meta charset="utf-8"><title>sampler</title>', 'utf8');
 
 let payload;
 try {
   const { browser, context } = await launchBrowser();
   const page = await context.newPage();
-  await page.goto('file:///C:/Windows/Temp/ju-brand-derive/harness.html');
+  await page.goto(pathToFileURL(TMP_HTML).href);
 
   payload = await page.evaluate(
     async ({ name, cols, rows }) => {
@@ -170,8 +180,7 @@ try {
   await browser.close();
 } finally {
   // The private copy never outlives the sampling step.
-  await unlink(WIN_TMP_PNG_WSL).catch(() => {});
-  await unlink(WIN_TMP_HTML_WSL).catch(() => {});
+  await rm(TMP_DIR, { recursive: true, force: true });
 }
 
 const body = JSON.stringify({

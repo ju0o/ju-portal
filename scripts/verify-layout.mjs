@@ -17,11 +17,7 @@ import { join, resolve } from 'node:path';
 const ROOT = resolve(new URL('..', import.meta.url).pathname.replace(/^\/(.:)/, '$1'));
 const DIST = join(ROOT, 'dist');
 const [CDP_HOST, CDP_PORT] = (process.env.JU_CDP ?? '127.0.0.1:9333').split(':');
-const PW = process.env.JU_PLAYWRIGHT
-  ?? (process.platform === 'win32'
-    ? 'file:///F:/JuPortal/node_modules/@playwright/test/index.mjs'
-    : '/mnt/f/JuPortal/node_modules/@playwright/test/index.mjs');
-const { chromium } = await import(PW);
+const { chromium } = await import('@playwright/test');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',

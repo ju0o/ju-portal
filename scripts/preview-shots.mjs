@@ -20,14 +20,7 @@ const ROOT = resolve(new URL('..', import.meta.url).pathname.replace(/^\/(.:)/, 
 const DIST = join(ROOT, 'dist');
 const OUT = resolve(process.argv[2] ?? join(ROOT, 'evidence', 'founder-review'));
 const [CDP_HOST, CDP_PORT] = (process.env.JU_CDP ?? '127.0.0.1:9333').split(':');
-// Windows-side run resolves the library from the same F: drive; WSL-side run
-// uses the absolute /mnt path. Either works, but the browser must be on the
-// same host as this process.
-const PW = process.env.JU_PLAYWRIGHT
-  ?? (process.platform === 'win32'
-    ? 'file:///F:/JuPortal/node_modules/@playwright/test/index.mjs'
-    : '/mnt/f/JuPortal/node_modules/@playwright/test/index.mjs');
-const { chromium } = await import(PW);
+const { chromium } = await import('@playwright/test');
 
 /** Frames the Founder asked to judge, at the two widths named in the brief. */
 const SHOTS = [

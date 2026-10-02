@@ -15,7 +15,7 @@ import { stat } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from '/mnt/f/JuPortal/node_modules/@playwright/test/index.mjs';
+import { chromium } from '@playwright/test';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DIST = join(ROOT, 'dist');
