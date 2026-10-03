@@ -114,6 +114,20 @@ async function loadEntry(section, slug) {
 const ROOT = process.cwd();
 const OUT = join(ROOT, 'dist');
 
+/**
+ * Product slugs discovered from the Registry directory, excluding the index
+ * aggregator. This lets a product created or promoted by JU Portal Studio
+ * render without a code change, while each file is still resolved directly by
+ * slug (sidestepping the extensionless imports in content/products/index.ts).
+ */
+async function discoverProductSlugs() {
+  const names = await readdir(join(ROOT, 'content', 'products'));
+  return names
+    .filter((n) => n !== 'index.ts' && /^[a-z0-9-]+\.ts$/.test(n))
+    .map((n) => n.slice(0, -3))
+    .sort();
+}
+
 /** Write a page to dist/, creating the directory when the route is nested. */
 async function page(route, html) {
   const clean = route.replace(/^\/+/, '').replace(/\/+$/, '');
@@ -129,7 +143,8 @@ async function page(route, html) {
 import labs from '../content/labs/index.ts';
 import radar from '../content/radar/index.ts';
 
-const products = await Promise.all(['juqode', 'jutell'].map((s) => loadEntry('products', s)));
+const productSlugs = await discoverProductSlugs();
+const products = await Promise.all(productSlugs.map((s) => loadEntry('products', s)));
 const skills = []; // content/skills/index.ts is intentionally empty at V0.
 
 // Section pages.
