@@ -1,5 +1,6 @@
 import { getPrimaryAction } from '../registry/action.ts';
 import { esc } from '../lib/dom.js';
+import homeCopy from '../../content/home.ts';
 import {
   mediaFrame,
   primaryAction,
@@ -17,14 +18,14 @@ function oneLine(text) {
 
 const STATUS = { available: '바로 써보기', beta: 'Beta', planned: '예정' };
 
-/** Hint chips — the Discovery entry points (DESIGN_CONTRACT §4). */
-const HINTS = [
-  'AI가 뭘 수정했는지 보고 싶어',
-  '말로 앱 만들고 싶어',
-  '코드를 쉽게 이해하고 싶어',
-  'Agent에게 능력 추가',
-  '새로운 AI 도구 찾기',
-];
+/**
+ * Render authored lines as <br>-separated text, escaping each line.
+ * Home copy comes from content/home.ts (Studio-editable); this is the single
+ * place the line array becomes markup.
+ */
+function lines(arr) {
+  return arr.map((l) => esc(l)).join('<br>');
+}
 
 /**
  * Discovery index — Registry-driven, client-side only.
@@ -112,59 +113,46 @@ function skillTile(s) {
 }
 
 /**
- * Hero: one poster composition, not a column plus an image. The founder
- * portrait is a full-bleed signal field the type sits over; the JU Signal
- * symbol and the mono metadata are separate objects in the same space.
- * Discovery (DESIGN_CONTRACT §4) sits below the headline as one quiet line,
- * so the hierarchy stays headline -> interaction -> products.
+ * Hero: two aligned columns — the text column (headline → supporting line →
+ * Discovery → CTAs) and ONE large animated JU Signal Object: a volumetric
+ * ASCII / dot sculpture on <canvas> (see `initHeroSculpture` in portal.js).
+ * The object is the only thing in the visual area; nothing overlaps the type.
  *
- * Motion contract (one system, see portal.js / portal.css):
- *   [data-hero]           portal.js adds `.is-sequenced` (normal motion only);
- *                         the CSS timeline APPEAR -> ASSEMBLE -> RESOLVE hangs
- *                         off that single class.
- *   [data-signal-field]   hosts the pointer field; each dot reacts on its own.
- *   [data-founder-dots]   filled with .portrait-dot from the derived geometry.
- *   .signal-paths / .signal-node / .signal-resolve are timeline participants.
+ * Motion contract (portal.js / portal.css):
+ *   [data-hero]            portal.js adds `.is-sequenced` (motion enabled) and
+ *                          drives the sculpture.
+ *   [data-hero-stage]      the sculpture's fluid stage box.
+ *   [data-hero-sculpture]  the <canvas>. It morphs between JU signal forms on a
+ *                          seamless loop (reduced motion: one static frame).
+ *   [data-section-sculpture] each lower section's volumetric form (V3.2).
  */
 function hero() {
+  const H = homeCopy.hero;
   return `<section class="hero" data-section="top" data-hero>
-  <div class="hero-signal" aria-hidden="true" data-signal-field>
-    <div class="signal-field">
-      <svg class="signal-paths" viewBox="0 0 480 480" focusable="false">
-        <path d="M52 124 C154 124 136 235 231 235 S329 111 430 111" />
-        <path d="M48 330 C154 330 160 236 231 236 S331 355 430 355" />
-      </svg>
-      <div class="portrait-dots" data-founder-dots></div>
-    </div>
-    <span class="signal-node signal-node-a"></span>
-    <span class="signal-node signal-node-b"></span>
-    <span class="signal-node signal-node-c"></span>
-    <span class="signal-resolve">${signalIcon('')}</span>
-    <p class="hero-wordmark">J U <span>SYSTEM</span></p>
-  </div>
   <div class="hero-copy">
-    <p class="label">JU · FROM SIGNAL TO TOOL</p>
+    <p class="label">${esc(H.label)}</p>
     <h1 class="hero-title" lang="ko">
-      <span>비개발자의 생각이 말이 되고,</span>
-      <span>말이 AI의 작업이 되고,</span>
-      <span>그 결과가 다시 사람이 이해할 수 있는</span>
-      <span><em>도구가 됩니다.</em></span>
+      ${H.titleLines.map((l) => `<span>${esc(l)}</span>`).join('\n      ')}
+      <span><em>${esc(H.titleAccent)}</em></span>
     </h1>
-    <p class="hero-sub">사람의 생각이 신호가 되고, AI의 작업을 거쳐<br>누구나 이해할 수 있는 도구로 이어집니다.</p>
+    <p class="hero-sub">${lines(H.subtitleLines)}</p>
     <div class="hero-discover">
       <form class="command" role="search" data-discovery>
-        <input type="search" name="q" placeholder="지금 뭘 하고 싶나요?" aria-label="지금 뭘 하고 싶나요?" autocomplete="off">
-        <button type="submit" class="cta" aria-label="찾아보기"><span aria-hidden="true">→</span></button>
+        <input type="search" name="q" placeholder="${esc(H.discoverPlaceholder)}" aria-label="${esc(H.discoverPlaceholder)}" autocomplete="off">
+        <button type="submit" class="cta" aria-label="${esc(H.discoverLabel)}"><span aria-hidden="true">→</span></button>
       </form>
       <div class="hints">
-        ${HINTS.map((h) => `<button class="hint" type="button" data-hint="${esc(h)}">${esc(h)}</button>`).join('')}
+        ${H.hints.map((h) => `<button class="hint" type="button" data-hint="${esc(h)}">${esc(h)}</button>`).join('')}
       </div>
       <div class="banner" data-banner role="status" hidden></div>
     </div>
     <div class="hero-actions">
-      <a class="btn cta" href="/products/">JU 제품 시작하기 <span aria-hidden="true">→</span></a>
-      <a class="btn" href="/skills/">Skills 보기</a>
+      <a class="btn cta" href="/products/">${esc(H.primaryCta)} <span aria-hidden="true">→</span></a>
+      <a class="btn" href="/skills/">${esc(H.secondaryCta)}</a>
     </div>
+  </div>
+  <div class="hero-stage" aria-hidden="true" data-hero-stage>
+    <canvas class="hero-sculpture" data-hero-sculpture></canvas>
   </div>
 </section>`;
 }
@@ -174,66 +162,72 @@ function hero() {
  * Sections 01–03 are pure brand copy with signal visuals; 04 resolves the
  * story into the real Registry products. No product truth is invented here.
  *
- * Motion contract: every `[data-story]` section gets `.is-in` once from a
- * single IntersectionObserver in portal.js; all story/beat animations key off
- * `.band-story.is-in`. `[data-dots="human"]` hosts are filled with .story-dot.
+ * Motion contract (V3.2): every `[data-story]` section gets `.is-in` once from
+ * a single IntersectionObserver in portal.js, and carries its own volumetric
+ * sculpture (`[data-section-sculpture]`, same shared engine as the Hero).
+ * Reduced motion: each canvas shows ONE static resolved sculpture.
  */
 function brandValueBand() {
+  const B = homeCopy.brand;
   return `<section class="band band-story" id="brand" data-section="top" data-story>
-  <div class="band-index"><span class="band-num">01 · BRAND VALUE</span></div>
+  <div class="band-index"><span class="band-num">${esc(B.index)}</span><span class="band-kind">SIGNAL</span></div>
   <div class="story-body">
-    <h2 class="story-title" lang="ko">누구나,<br>자신의 아이디어를<br>현실로 만들 수 있는 시대.</h2>
+    <h2 class="story-title" lang="ko">${lines(B.titleLines)}</h2>
     <div class="story-rule" aria-hidden="true"></div>
     <div class="story-cols">
-      <p class="story-text" lang="ko">비개발자도 할 수 있습니다.<br>JU는 생각하는 모든 사람을 위해<br>새로운 창작의 방식을 만듭니다.</p>
-      <ol class="story-list" aria-label="JU가 잇는 것">
-        <li>아이디어</li>
-        <li>콘텐츠</li>
-        <li>도구</li>
-        <li>다시 사람</li>
+      <p class="story-text" lang="ko">${lines(B.bodyLines)}</p>
+      <ol class="story-list" aria-label="${esc(B.listLabel)}">
+        ${B.chain.map((c) => `<li>${esc(c)}</li>`).join('\n        ')}
       </ol>
     </div>
   </div>
-  <div class="story-figure" aria-hidden="true" data-dots="human"></div>
+  <div class="story-figure" aria-hidden="true" data-section-stage><canvas class="section-sculpture" data-section-sculpture="brand-value"></canvas></div>
 </section>`;
 }
 
+/**
+ * 02 YOU INSTRUCT — the prompt is its own readable composer; the sculpture
+ * receives that instruction and sends one signal through a narrowing channel.
+ */
 function youInstructBand() {
+  const B = homeCopy.instruct;
   return `<section class="band band-story" id="instruct" data-section="top" data-story>
-  <div class="band-index"><span class="band-num">02 · YOU INSTRUCT</span></div>
+  <div class="band-index"><span class="band-num">${esc(B.index)}</span><span class="band-kind">INPUT</span></div>
   <div class="beat">
     <div>
-      <h2 class="story-title beat-title" lang="ko">당신의 생각을,<br>그냥 말해주세요.</h2>
-      <p class="story-text" lang="ko">코드가 아니라 평소 쓰는 말이면 충분합니다.<br>사람의 신호가 여기서 시작됩니다.</p>
+      <h2 class="story-title beat-title" lang="ko">${lines(B.titleLines)}</h2>
+      <p class="story-text" lang="ko">${lines(B.bodyLines)}</p>
     </div>
-    <div class="beat-visual">
-      <div class="beat-dots" data-dots="human"></div>
-      <div class="prompt" aria-label="예시 요청">
-        <span class="label prompt-example">Example</span>
+    <div class="beat-visual instruction-visual">
+      <div class="instruction-composer" aria-label="${esc(B.exampleAria)}">
+        <span class="label prompt-example">${esc(B.exampleLabel)}</span>
         <span class="prompt-cursor" aria-hidden="true">›</span>
-        <span class="prompt-text">내 아이디어를 작은 웹 도구로 만들어줘</span>
+        <span class="prompt-text">${esc(B.exampleText)}</span>
       </div>
-      <span class="signal-track" aria-hidden="true"><i class="signal-runner"></i></span>
+      <div class="receiver-stage" aria-hidden="true" data-section-stage><canvas class="section-sculpture" data-section-sculpture="you-instruct"></canvas></div>
     </div>
   </div>
 </section>`;
 }
 
-const AI_STATES = ['Planning', 'Generating', 'Building', 'Testing'];
-
+/**
+ * 03 AI WORKS — a modular machine core assembles and tests through four stages.
+ * The stage labels remain supporting metadata below the object.
+ */
 function aiWorksBand() {
-  return `<section class="band band-story" id="works" data-section="top" data-story>
-  <div class="band-index"><span class="band-num">03 · AI WORKS</span></div>
+  const B = homeCopy.works;
+  return `<section class="band band-story process-band" id="works" data-section="top" data-story>
+  <div class="band-index"><span class="band-num">${esc(B.index)}</span><span class="band-kind">PROCESS</span></div>
   <div class="beat">
     <div>
-      <h2 class="story-title beat-title" lang="ko">AI가 당신의 생각을<br>작업으로 바꿉니다.</h2>
-      <p class="story-text" lang="ko">계획하고, 만들고, 조립하고, 확인합니다.<br>신호가 작업이 되는 과정이 그대로 보입니다.</p>
+      <h2 class="story-title beat-title" lang="ko">${lines(B.titleLines)}</h2>
+      <p class="story-text" lang="ko">${lines(B.bodyLines)}</p>
     </div>
-    <div class="beat-visual">
-      <ol class="states" aria-label="AI 작업 단계">
-        ${AI_STATES.map((s, i) => `<li class="chip state" style="--i:${i}"><i class="state-dot" aria-hidden="true"></i>${s}</li>`).join('')}
+    <div class="beat-visual process-visual" data-works-visual>
+      <div class="engine-stage" aria-hidden="true" data-section-stage><canvas class="section-sculpture" data-section-sculpture="ai-works"></canvas></div>
+      <ol class="states" aria-label="${esc(B.statesLabel)}">
+        ${B.states.map((s, i) => `<li class="chip state" style="--i:${i}"><i class="state-dot" aria-hidden="true"></i>${esc(s)}</li>`).join('')}
       </ol>
-      <span class="work-line" aria-hidden="true"></span>
     </div>
   </div>
 </section>`;
@@ -245,37 +239,39 @@ function aiWorksBand() {
  * disabled preview that says so; it cannot submit anything.
  */
 function notifyBand() {
+  const N = homeCopy.notify;
   return `<section class="band" data-section="notify">
-  <div class="band-head"><h2 class="title" lang="ko">지금, JU의 다음 소식을<br>가장 먼저 받아보세요.</h2></div>
-  <p class="muted" style="margin:0;max-width:46rem">새로운 기능, 제품 업데이트, 그리고 더 큰 가능성에 대한 소식을 전해드립니다.</p>
+  <div class="band-head"><h2 class="title" lang="ko">${lines(N.titleLines)}</h2></div>
+  <p class="muted" style="margin:0;max-width:46rem">${esc(N.body)}</p>
   <div class="notify-preview" aria-labelledby="notify-state">
     <span class="notify-field" aria-hidden="true">you@example.com</span>
-    <button class="btn" type="button" disabled aria-disabled="true">알림 받기</button>
-    <p class="label" id="notify-state">알림 기능 준비 중 · 지금은 입력을 받지 않습니다</p>
+    <button class="btn" type="button" disabled aria-disabled="true">${esc(N.button)}</button>
+    <p class="label" id="notify-state">${esc(N.state)}</p>
   </div>
-  <p class="muted" style="margin:0;max-width:46rem;font-size:14px">구독을 받는 서버가 아직 없습니다. 준비되면 이곳에서 이메일을 받고 소식을 전해드리겠습니다.</p>
+  <p class="muted" style="margin:0;max-width:46rem;font-size:14px">${esc(N.footnote)}</p>
 </section>`;
 }
 
 /** Radar on Home: a thin pointer to the real service, resolved by Infra. */
 function radarBand(radar, num) {
+  const S = homeCopy.sections;
   const r = radar[0];
   const action = r ? getPrimaryAction(r) : null;
   return `<section class="band" id="radar" data-section="radar">
   <div class="band-head">
     <div class="band-index"><span class="band-num">${num}</span></div>
     <div>
-      <h2 class="title">새로운 도구를 발견합니다.</h2>
-      <p>JU가 발견하고 검증하는 새로운 AI / Agent / 개발도구</p>
+      <h2 class="title">${esc(S.radarTitle)}</h2>
+      <p>${esc(S.radarBody)}</p>
     </div>
   </div>
   <div class="tile-actions" style="margin:0">
     ${
       action?.resolved
-        ? `<a class="btn cta btn-sm" href="${esc(action.href)}" rel="noopener" data-cta data-slug="${esc(r.slug)}" data-verb="${esc(action.verb)}">JU Radar 열어보기</a>`
-        : '<span class="btn is-disabled btn-sm" aria-disabled="true">연결 준비 중</span>'
+        ? `<a class="btn cta btn-sm" href="${esc(action.href)}" rel="noopener" data-cta data-slug="${esc(r.slug)}" data-verb="${esc(action.verb)}">${esc(S.radarCta)}</a>`
+        : `<span class="btn is-disabled btn-sm" aria-disabled="true">${esc(S.radarPending)}</span>`
     }
-    <a class="btn btn-sm" href="/radar/">자세히</a>
+    <a class="btn btn-sm" href="/radar/">${esc(S.radarDetails)}</a>
   </div>
 </section>`;
 }
@@ -283,6 +279,8 @@ function radarBand(radar, num) {
 export function renderHome({ products, skills, labs, radar = [], currentPath, overlays = '' }) {
   let n = 4;
   const next = () => String(++n).padStart(2, '0');
+  const S = homeCopy.sections;
+  const R = homeCopy.resolve;
   const body = `${hero()}
 
 ${brandValueBand()}
@@ -292,11 +290,14 @@ ${youInstructBand()}
 ${aiWorksBand()}
 
 <section class="band band-story band-resolve" id="products" data-section="products" data-story>
-  <div class="band-index"><span class="band-num">04 · REAL TOOL</span></div>
+  <div class="band-index"><span class="band-num">${esc(R.index)}</span><span class="band-kind">RESULT</span></div>
   <div class="story-body">
-    <h2 class="story-title" lang="ko">그리고,<br>당신이 이해할 수 있는<br>도구가 완성됩니다.</h2>
-    <p class="story-text" lang="ko">여기까지가 이야기이고, 아래는 지금 실제로 써 볼 수 있는 제품입니다.<br>설치하지 않고 바로 열어보거나, 명령 한 줄로 시작합니다.</p>
+    <h2 class="story-title" lang="ko">${lines(R.titleLines)}</h2>
+    <p class="story-text" lang="ko">${lines(R.bodyLines)}</p>
+    <div class="story-rule" aria-hidden="true"></div>
+    <p class="band-status" data-resolve-status>RESULT READY · REAL TOOL</p>
   </div>
+  <div class="resolve-stage" aria-hidden="true" data-section-stage><canvas class="section-sculpture" data-section-sculpture="real-tool"></canvas></div>
   <div class="grid grid-3">${products.map(productTile).join('')}</div>
 </section>
 
@@ -304,8 +305,8 @@ ${aiWorksBand()}
   <div class="band-head">
     <div class="band-index"><span class="band-num">${next()}</span></div>
     <div>
-      <h2 class="title">Skills</h2>
-      <p>Agent에게 새로운 능력을 붙여요.</p>
+      <h2 class="title">${esc(S.skillsTitle)}</h2>
+      <p>${esc(S.skillsBody)}</p>
     </div>
   </div>
   ${
@@ -321,8 +322,8 @@ ${
   <div class="band-head">
     <div class="band-index"><span class="band-num">${next()}</span></div>
     <div>
-      <h2 class="title">Labs</h2>
-      <p>완제품으로 가장하지 않는 연구·실험 공간.</p>
+      <h2 class="title">${esc(S.labsTitle)}</h2>
+      <p>${esc(S.labsBody)}</p>
     </div>
   </div>
   ${labs.map(labRow).join('')}
@@ -335,8 +336,8 @@ ${radarBand(radar, next())}
 ${notifyBand()}`;
 
   return layout(
-    'JU — 생각이 도구가 되는 곳',
-    '누구나 자신의 아이디어를 현실로 만들 수 있는 시대. JU는 사람의 생각을 AI 작업과 이해하기 쉬운 도구로 이어줍니다.',
+    homeCopy.meta.title,
+    homeCopy.meta.description,
     currentPath,
     body,
     { overlays },

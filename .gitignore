@@ -11,3 +11,6 @@ dist/
 Thumbs.db
 public/media/**.tmp
 evidence/
+# JU Portal Studio transient temp files (deleted immediately; ignored defensively)
+**/*.__studio_tmp__*
+**/*.__l[0-9]*
