@@ -9,7 +9,7 @@
     "verify": "node scripts/verify-registry.mjs",
     "verify:links": "node scripts/verify-links.mjs",
     "pretest": "npm run build",
-    "test": "tsx --test tests/*.test.mjs",
+    "test": "tsx --test --test-concurrency=1 tests/*.test.mjs",
     "studio": "tsx src/studio/server.ts"
   },
   "devDependencies": {

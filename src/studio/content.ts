@@ -30,79 +30,6 @@ import type {
 export type Section = 'products' | 'labs' | 'skills' | 'radar';
 export type EntryKind = 'product' | 'lab' | 'skill' | 'radar';
 
-/** Fallback header (interface + contract) used only if home.ts is missing/corrupt. */
-const DEFAULT_HOME_HEADER = `/**
- * Home copy — the ONLY editable Home content, in one committed file.
- *
- * Studio edits this file. It is deliberately COPY-ONLY: no layout, no CSS, no
- * animation, no component configuration lives here.
- */
-export interface HomeCopy {
-  hero: {
-    label: string;
-    titleLines: string[];
-    titleAccent: string;
-    subtitleLines: string[];
-    discoverPlaceholder: string;
-    discoverLabel: string;
-    hints: string[];
-    primaryCta: string;
-    secondaryCta: string;
-    exampleAria: string;
-  };
-  brand: {
-    index: string;
-    titleLines: string[];
-    bodyLines: string[];
-    chain: string[];
-    listLabel: string;
-  };
-  instruct: {
-    index: string;
-    titleLines: string[];
-    bodyLines: string[];
-    exampleLabel: string;
-    exampleAria: string;
-    exampleText: string;
-  };
-  works: {
-    index: string;
-    titleLines: string[];
-    bodyLines: string[];
-    statesLabel: string;
-    states: string[];
-  };
-  resolve: {
-    index: string;
-    titleLines: string[];
-    bodyLines: string[];
-  };
-  sections: {
-    skillsTitle: string;
-    skillsBody: string;
-    labsTitle: string;
-    labsBody: string;
-    radarTitle: string;
-    radarBody: string;
-    radarCta: string;
-    radarDetails: string;
-    radarPending: string;
-  };
-  notify: {
-    titleLines: string[];
-    body: string;
-    button: string;
-    state: string;
-    footnote: string;
-  };
-  meta: {
-    title: string;
-    description: string;
-  };
-}
-
-`;
-
 export interface EntryInfo {
   section: Section;
   slug: string;
@@ -180,6 +107,273 @@ function toTSLiteral(value: unknown, indent = 2): string {
     }).join(',\n') + ',\n' + ind + '}';
   };
   return write(value, 0);
+}
+
+type SourceToken = { text: string; start: number; end: number; kind: 'word' | 'string' | 'punct' };
+type SourceValue = {
+  kind: 'object' | 'array' | 'atom';
+  start: number;
+  literalEnd: number;
+  end: number;
+  properties?: Map<string, SourceValue>;
+  items?: SourceValue[];
+};
+type OriginalSlice = { value: unknown; text: string };
+type SourceSaveState = { lastSource: string; originals: Map<string, OriginalSlice> };
+
+const sourceSaveStates = new Map<string, SourceSaveState>();
+
+/** Small source scanner for the JSON-shaped object/array literals in content/*.ts. */
+function sourceTokens(source: string): SourceToken[] {
+  const tokens: SourceToken[] = [];
+  for (let i = 0; i < source.length;) {
+    const c = source[i];
+    if (/\s/.test(c)) { i++; continue; }
+    if (c === '/' && source[i + 1] === '/') {
+      i += 2;
+      while (i < source.length && source[i] !== '\n' && source[i] !== '\r') i++;
+      continue;
+    }
+    if (c === '/' && source[i + 1] === '*') {
+      const end = source.indexOf('*/', i + 2);
+      if (end < 0) throw new Error('unterminated source comment');
+      i = end + 2;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      const start = i;
+      const quote = c;
+      i++;
+      while (i < source.length) {
+        if (source[i] === '\\') { i += Math.min(2, source.length - i); continue; }
+        if (source[i++] === quote) break;
+      }
+      if (source[i - 1] !== quote) throw new Error('unterminated source string');
+      tokens.push({ text: source.slice(start, i), start, end: i, kind: 'string' });
+      continue;
+    }
+    if (/[$_\p{L}]/u.test(c)) {
+      const start = i++;
+      while (i < source.length && /[$_\u200c\u200d\p{L}\p{N}]/u.test(source[i])) i++;
+      tokens.push({ text: source.slice(start, i), start, end: i, kind: 'word' });
+      continue;
+    }
+    if (/[0-9]/.test(c)) {
+      const start = i++;
+      while (i < source.length && /[\w.]/.test(source[i])) i++;
+      tokens.push({ text: source.slice(start, i), start, end: i, kind: 'word' });
+      continue;
+    }
+    tokens.push({ text: c, start: i, end: i + 1, kind: 'punct' });
+    i++;
+  }
+  return tokens;
+}
+
+const CLOSERS: Record<string, string> = { '{': '}', '[': ']', '(': ')' };
+function expressionEnd(tokens: SourceToken[], start: number, stops: string[]): number {
+  const stack: string[] = [];
+  for (let i = start; i < tokens.length; i++) {
+    const text = tokens[i].text;
+    if (CLOSERS[text]) stack.push(CLOSERS[text]);
+    else if (text === '}' || text === ']' || text === ')') {
+      if (stack.length === 0) return i;
+      if (stack.pop() !== text) throw new Error('mismatched source delimiter');
+    } else if (stack.length === 0 && stops.includes(text)) return i;
+  }
+  if (stack.length) throw new Error('unterminated source value');
+  return tokens.length;
+}
+
+function matchingClose(tokens: SourceToken[], open: number): number {
+  const close = CLOSERS[tokens[open]?.text];
+  if (!close) throw new Error('expected source object or array');
+  const stack = [close];
+  for (let i = open + 1; i < tokens.length; i++) {
+    const text = tokens[i].text;
+    if (CLOSERS[text]) stack.push(CLOSERS[text]);
+    else if (text === '}' || text === ']' || text === ')') {
+      if (stack.pop() !== text) throw new Error('mismatched source delimiter');
+      if (stack.length === 0) return i;
+    }
+  }
+  throw new Error('unterminated source object or array');
+}
+
+function sourceValue(tokens: SourceToken[], start: number, end: number): SourceValue {
+  const first = tokens[start];
+  const last = tokens[end - 1];
+  if (!first || !last || end <= start) throw new Error('missing source value');
+  if (first.text === '{') {
+    const close = matchingClose(tokens, start);
+    const properties = new Map<string, SourceValue>();
+    for (let i = start + 1; i < close;) {
+      if (tokens[i].text === ',') { i++; continue; }
+      const key = tokens[i];
+      if (key.kind !== 'word' || tokens[i + 1]?.text !== ':') {
+        throw new Error('unsupported content object property');
+      }
+      const valueStart = i + 2;
+      const valueEnd = expressionEnd(tokens, valueStart, [',', '}']);
+      properties.set(key.text, sourceValue(tokens, valueStart, valueEnd));
+      i = valueEnd + (tokens[valueEnd]?.text === ',' ? 1 : 0);
+    }
+    return { kind: 'object', start: first.start, literalEnd: tokens[close].end, end: last.end, properties };
+  }
+  if (first.text === '[') {
+    const close = matchingClose(tokens, start);
+    const items: SourceValue[] = [];
+    for (let i = start + 1; i < close;) {
+      if (tokens[i].text === ',') { i++; continue; }
+      const valueEnd = expressionEnd(tokens, i, [',', ']']);
+      items.push(sourceValue(tokens, i, valueEnd));
+      i = valueEnd + (tokens[valueEnd]?.text === ',' ? 1 : 0);
+    }
+    return { kind: 'array', start: first.start, literalEnd: tokens[close].end, end: last.end, items };
+  }
+  return { kind: 'atom', start: first.start, literalEnd: first.end, end: last.end };
+}
+
+function exportedValue(source: string, declaration: string): SourceValue {
+  const tokens = sourceTokens(source);
+  let start = -1;
+  if (declaration === 'default') {
+    for (let i = 0; i < tokens.length - 1; i++) {
+      if (tokens[i].text === 'export' && tokens[i + 1].text === 'default') { start = i + 2; break; }
+    }
+  } else {
+    for (let i = 0; i < tokens.length - 2; i++) {
+      if (tokens[i].text === 'export' && tokens[i + 1].text === 'const' && tokens[i + 2].text === declaration) {
+        let eq = i + 3;
+        while (eq < tokens.length && tokens[eq].text !== '=') eq++;
+        start = eq + 1;
+        break;
+      }
+    }
+  }
+  if (start < 0 || start >= tokens.length) throw new Error('content source declaration not found: ' + declaration);
+  const end = expressionEnd(tokens, start, [';']);
+  return sourceValue(tokens, start, end);
+}
+
+function sameValue(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => sameValue(v, b[i]));
+  }
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  const ak = Object.keys(a as object).sort();
+  const bk = Object.keys(b as object).sort();
+  return ak.length === bk.length && ak.every((key, i) => key === bk[i] && sameValue((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]));
+}
+
+function cloneSourceValue<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function hasOriginalAncestor(state: SourceSaveState, path: Array<string | number>): boolean {
+  for (const key of state.originals.keys()) {
+    const ancestor = JSON.parse(key) as Array<string | number>;
+    if (ancestor.length < path.length && ancestor.every((part, i) => part === path[i])) return true;
+  }
+  return false;
+}
+
+function quotedString(value: string, quote: string): string {
+  const escaped = String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(new RegExp(quote, 'g'), '\\' + quote)
+    .replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+  return quote + escaped + quote;
+}
+
+function renderSourceValue(value: unknown, source: string, node: SourceValue): string {
+  const raw = source.slice(node.start, node.literalEnd);
+  const quote = raw[0] === '"' || raw[0] === "'" ? raw[0] : "'";
+  const literal = typeof value === 'string' ? quotedString(value, quote) : toTSLiteral(value, 2);
+  return literal + source.slice(node.literalEnd, node.end);
+}
+
+function patchSourceValue(
+  node: SourceValue,
+  oldValue: unknown,
+  newValue: unknown,
+  path: Array<string | number>,
+  source: string,
+  state: SourceSaveState,
+  patches: Array<{ start: number; end: number; text: string }>,
+): void {
+  if (sameValue(oldValue, newValue)) return;
+  const pathKey = JSON.stringify(path);
+  const savedOriginal = state.originals.get(pathKey);
+  if (savedOriginal && sameValue(newValue, savedOriginal.value)) {
+    patches.push({ start: node.start, end: node.end, text: savedOriginal.text });
+    for (const key of state.originals.keys()) {
+      const child = JSON.parse(key) as Array<string | number>;
+      if (child.length > path.length && path.every((part, i) => child[i] === part)) state.originals.delete(key);
+    }
+    state.originals.delete(pathKey);
+    return;
+  }
+  if (oldValue && newValue && typeof oldValue === 'object' && typeof newValue === 'object' && !Array.isArray(oldValue) && !Array.isArray(newValue) && node.kind === 'object') {
+    const oldKeys = Object.keys(oldValue as object);
+    const newKeys = Object.keys(newValue as object);
+    if (oldKeys.length === newKeys.length && oldKeys.every((key) => key in (newValue as object)) && oldKeys.every((key) => node.properties!.has(key))) {
+      for (const key of oldKeys) {
+        patchSourceValue(node.properties!.get(key)!, (oldValue as Record<string, unknown>)[key], (newValue as Record<string, unknown>)[key], [...path, key], source, state, patches);
+      }
+      return;
+    }
+  } else if (Array.isArray(oldValue) && Array.isArray(newValue) && node.kind === 'array' && oldValue.length === newValue.length) {
+    for (let i = 0; i < oldValue.length; i++) patchSourceValue(node.items![i], oldValue[i], newValue[i], [...path, i], source, state, patches);
+    return;
+  }
+
+  let original = state.originals.get(pathKey);
+  if (!original && !hasOriginalAncestor(state, path)) {
+    original = { value: cloneSourceValue(oldValue), text: source.slice(node.start, node.end) };
+    state.originals.set(pathKey, original);
+  }
+  if (original && sameValue(newValue, original.value)) {
+    patches.push({ start: node.start, end: node.end, text: original.text });
+    state.originals.delete(pathKey);
+  } else {
+    patches.push({ start: node.start, end: node.end, text: renderSourceValue(newValue, source, node) });
+  }
+}
+
+function makeSourceSaveState(file: string, source: string): SourceSaveState {
+  const existing = sourceSaveStates.get(file);
+  if (existing && existing.lastSource === source) return { lastSource: source, originals: new Map(existing.originals) };
+  return { lastSource: source, originals: new Map() };
+}
+
+async function surgicallyWrite(
+  file: string,
+  oldValue: unknown,
+  newValue: unknown,
+  declaration: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const source = await readFile(file, 'utf8');
+    const root = exportedValue(source, declaration);
+    const state = makeSourceSaveState(file, source);
+    const patches: Array<{ start: number; end: number; text: string }> = [];
+    patchSourceValue(root, oldValue, newValue, [], source, state, patches);
+    const updated = patches.sort((a, b) => b.start - a.start).reduce(
+      (text, patch) => text.slice(0, patch.start) + patch.text + text.slice(patch.end), source,
+    );
+    if (updated === source) return { ok: true };
+    const result = await atomicWrite(file, updated);
+    if (result.ok) {
+      state.lastSource = updated;
+      if (state.originals.size) sourceSaveStates.set(file, state);
+      else sourceSaveStates.delete(file);
+    }
+    return result;
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
 }
 
 /** Validate a single entry object against the Registry contract. Returns error strings. */
@@ -325,28 +519,39 @@ export function validateHome(home: unknown): string[] {
   return errors;
 }
 
-/**
- * Serialize a HomeCopy object back to content/home.ts, preserving the existing
- * file header (the `HomeCopy` interface and its doc comments) and rewriting only
- * the editable value + default export. Falls back to the canonical header above
- * if the file is missing or has no `export const home` marker.
- */
+export function userFacingValidationMessage(error: string): string {
+  const exact: Record<string, string> = {
+    'npm/pypi release needs package': 'npm 또는 PyPI 릴리스를 사용하려면 패키지 이름이 필요합니다.',
+    'github_release needs repo': 'GitHub 릴리스를 사용하려면 저장소가 필요합니다.',
+    'web/direct release needs url': '웹 또는 직접 다운로드 방식에는 링크 주소가 필요합니다.',
+    'available products must declare at least one release': '사용 가능한 제품에는 하나 이상의 설치 또는 실행 방법이 필요합니다.',
+    'at most one release may be primary': '대표 버튼은 하나만 지정할 수 있습니다.',
+    'source.url required': '출처 링크를 입력해 주세요.',
+    'entry must be an object': '제품 정보를 확인할 수 없습니다. 다시 열어 주세요.',
+    'home must be an object': '홈페이지 정보를 확인할 수 없습니다. 다시 열어 주세요.',
+  };
+  if (exact[error]) return exact[error];
+  if (error.includes(' must be one of the allowed values') || error.includes(' must be ')) return '선택한 항목의 값을 다시 확인해 주세요.';
+  if (error.includes(' is required') || error.includes('required')) return '필수 항목을 입력해 주세요.';
+  if (error.includes('media path') || error.includes('media ')) return '이미지 또는 영상 경로를 확인해 주세요.';
+  if (error.includes('slug')) return '주소에 사용할 영문 소문자와 숫자, 하이픈을 확인해 주세요.';
+  return '입력한 내용을 다시 확인해 주세요.';
+}
+
+/** Return the original Home module with only changed value ranges replaced. */
 export async function serializeHomeSource(home: Record<string, unknown>, root = process.cwd()): Promise<string> {
-  let header = DEFAULT_HOME_HEADER;
-  try {
-    const existing = await readFile(join(root, 'content', 'home.ts'), 'utf8');
-    const marker = 'export const home';
-    const idx = existing.indexOf(marker);
-    if (idx >= 0) header = existing.slice(0, idx);
-  } catch {
-    /* first time / file missing — use DEFAULT_HOME_HEADER */
-  }
-  return header + 'export const home: HomeCopy = ' + toTSLiteral(home, 2) + ';\n\nexport default home;\n';
+  const file = join(root, 'content', 'home.ts');
+  const source = await readFile(file, 'utf8');
+  const previous = await loadHome(root);
+  const patches: Array<{ start: number; end: number; text: string }> = [];
+  patchSourceValue(exportedValue(source, 'home'), previous, home, [], source, { lastSource: source, originals: new Map() }, patches);
+  return patches.sort((a, b) => b.start - a.start).reduce(
+    (text, patch) => text.slice(0, patch.start) + patch.text + text.slice(patch.end), source,
+  );
 }
 
 export async function saveHome(home: Record<string, unknown>, root = process.cwd()) {
-  const source = await serializeHomeSource(home, root);
-  return atomicWrite(join(root, 'content', 'home.ts'), source);
+  return surgicallyWrite(join(root, 'content', 'home.ts'), await loadHome(root), home, 'home');
 }
 
 /** Serialize one entry to a content file body (no header/footer). */
@@ -359,9 +564,7 @@ function serializeEntryBody(entry: Record<string, unknown>, kind: EntryKind): st
   const body = toTSLiteral(ordered, 2);
   const typePath = '../../src/registry/types';
   const type = IMPORT_TYPE[kind];
-  const slug = String((entry.slug as string) ?? 'entry');
-  return `// Studio: ${slug} (${kind}). Editable registry copy.
-import type { ${type} } from '${typePath}';
+  return `import type { ${type} } from '${typePath}';
 
 export default ${body} satisfies ${type};
 `;
@@ -369,10 +572,8 @@ export default ${body} satisfies ${type};
 
 /** Serialize the products index.ts aggregator for a slug list. */
 function serializeProductsIndex(slugs: string[]): string {
-  const lines = slugs.map((s) => `import ${s} from './${s}';`);
   const arr = slugs.map((s) => s).join(', ');
-  return `// Studio-generated index. Keep in sync with content/products/*.ts.
-import type { ProductEntry } from '../../src/registry/types';
+  return `import type { ProductEntry } from '../../src/registry/types';
 
 export const products: ProductEntry[] = [${arr}];
 
@@ -385,8 +586,7 @@ function serializeArrayIndex(entries: AnyEntry[], kind: EntryKind): string {
   const type = kind === 'lab' ? 'LabEntry' : kind === 'skill' ? 'SkillEntry' : 'RadarEntry';
   const arrName = kind === 'lab' ? 'labs' : kind === 'skill' ? 'skills' : 'radar';
   const body = toTSLiteral(entries as unknown as Record<string, unknown>[], 2);
-  return `// Studio: ${arrName} registry. Editable by Studio.
-import type { ${type} } from '../../src/registry/types';
+  return `import type { ${type} } from '../../src/registry/types';
 
 export const ${arrName}: ${type}[] = ${body};
 
@@ -485,18 +685,41 @@ export async function saveEntry(section: Section, slug: string, entry: Record<st
   // sanitize: keep only allowed, schema-shaped data; strip the slug mismatch
   const safe = { ...entry, slug: String(entry.slug ?? slug) };
   const file = join(root, 'content', section, slug + '.ts');
-  return atomicWrite(file, serializeEntryBody(safe, kind));
+  try {
+    await stat(file);
+    const previous = await loadEntry(section, slug, root);
+    return surgicallyWrite(file, previous, safe, 'default');
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') return { ok: false, error: (e as Error).message };
+    return atomicWrite(file, serializeEntryBody(safe, kind));
+  }
 }
 
-/** Rewrite an array-backed section index with `entries` in the given order. */
+/** Preserve the index module and patch only changed entry values. */
 export async function saveArraySection(section: Section, entries: AnyEntry[], root = process.cwd()) {
-  const kind = KIND_FOR_SECTION[section];
   const file = join(root, 'content', section, 'index.ts');
-  return atomicWrite(file, serializeArrayIndex(entries as AnyEntry[], kind));
+  const previous = (await listSection(section, root)).map((item) => item.entry);
+  return surgicallyWrite(file, previous, entries, section);
 }
 
 export async function saveProductsIndex(slugs: string[], root = process.cwd()) {
-  return atomicWrite(join(root, 'content', 'products', 'index.ts'), serializeProductsIndex(slugs));
+  if (!slugs.every((slug) => /^[a-z0-9-]+$/.test(slug))) return { ok: false, error: 'invalid product slug' };
+  const file = join(root, 'content', 'products', 'index.ts');
+  try {
+    const source = await readFile(file, 'utf8');
+    const node = exportedValue(source, 'products');
+    if (node.kind !== 'array') throw new Error('products index must be an array');
+    const current = node.items!.map((item) => source.slice(item.start, item.end));
+    if (sameValue(current, slugs)) return { ok: true };
+    const currentLiteral = source.slice(node.start, node.literalEnd);
+    const multiline = currentLiteral.includes('\n');
+    const literal = multiline
+      ? '[\n' + slugs.map((slug) => '  ' + slug + ',').join('\n') + '\n]'
+      : '[' + slugs.join(', ') + ']';
+    return atomicWrite(file, source.slice(0, node.start) + literal + source.slice(node.literalEnd));
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
 }
 
 export async function deleteEntryFile(section: Section, slug: string, root = process.cwd()) {

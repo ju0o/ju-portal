@@ -52,7 +52,7 @@ export function runVerify(cwd: string, runner: Runner = runCommand): VerifyRepor
     const files = readdirSync(join(cwd, 'tests'))
       .filter((f) => f.endsWith('.test.mjs'))
       .map((f) => 'tests/' + f);
-    report.test = runner('npx', ['--no-install', 'tsx', '--test', ...files], cwd, { timeoutMs: 240000 });
+    report.test = runner('npx', ['--no-install', 'tsx', '--test', '--test-concurrency=1', ...files], cwd, { timeoutMs: 240000 });
   } else if (!tsxAvailable) {
     report.test = { ok: false, output: 'tsx not installed (npm install needed)', durationMs: 0, code: 127 };
   } else if (!report.build.ok) {

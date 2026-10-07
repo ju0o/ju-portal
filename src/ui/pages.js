@@ -113,37 +113,22 @@ function skillTile(s) {
 }
 
 /**
- * Hero: one poster composition, not a column plus an image. The founder
- * portrait is a full-bleed signal field the type sits over; the JU Signal
- * symbol and the mono metadata are separate objects in the same space.
- * Discovery (DESIGN_CONTRACT §4) sits below the headline as one quiet line,
- * so the hierarchy stays headline -> interaction -> products.
+ * Hero: two aligned columns — the text column (headline → supporting line →
+ * Discovery → CTAs) and ONE large animated JU Signal Object: a volumetric
+ * ASCII / dot sculpture on <canvas> (see `initHeroSculpture` in portal.js).
+ * The object is the only thing in the visual area; nothing overlaps the type.
  *
- * Motion contract (one system, see portal.js / portal.css):
- *   [data-hero]           portal.js adds `.is-sequenced` (normal motion only);
- *                         the CSS timeline APPEAR -> ASSEMBLE -> RESOLVE hangs
- *                         off that single class.
- *   [data-signal-field]   hosts the pointer field; each dot reacts on its own.
- *   [data-founder-dots]   filled with .portrait-dot from the derived geometry.
- *   .signal-paths / .signal-node / .signal-resolve are timeline participants.
+ * Motion contract (portal.js / portal.css):
+ *   [data-hero]            portal.js adds `.is-sequenced` (motion enabled) and
+ *                          drives the sculpture.
+ *   [data-hero-stage]      the sculpture's fluid stage box.
+ *   [data-hero-sculpture]  the <canvas>. It morphs between JU signal forms on a
+ *                          seamless loop (reduced motion: one static frame).
+ *   [data-section-sculpture] each lower section's volumetric form (V3.2).
  */
 function hero() {
   const H = homeCopy.hero;
   return `<section class="hero" data-section="top" data-hero>
-  <div class="hero-signal" aria-hidden="true" data-signal-field>
-    <div class="signal-field">
-      <svg class="signal-paths" viewBox="0 0 480 480" focusable="false">
-        <path d="M52 124 C154 124 136 235 231 235 S329 111 430 111" />
-        <path d="M48 330 C154 330 160 236 231 236 S331 355 430 355" />
-      </svg>
-      <div class="portrait-dots" data-founder-dots></div>
-    </div>
-    <span class="signal-node signal-node-a"></span>
-    <span class="signal-node signal-node-b"></span>
-    <span class="signal-node signal-node-c"></span>
-    <span class="signal-resolve">${signalIcon('')}</span>
-    <p class="hero-wordmark">J U <span>SYSTEM</span></p>
-  </div>
   <div class="hero-copy">
     <p class="label">${esc(H.label)}</p>
     <h1 class="hero-title" lang="ko">
@@ -166,6 +151,9 @@ function hero() {
       <a class="btn" href="/skills/">${esc(H.secondaryCta)}</a>
     </div>
   </div>
+  <div class="hero-stage" aria-hidden="true" data-hero-stage>
+    <canvas class="hero-sculpture" data-hero-sculpture></canvas>
+  </div>
 </section>`;
 }
 
@@ -174,14 +162,15 @@ function hero() {
  * Sections 01–03 are pure brand copy with signal visuals; 04 resolves the
  * story into the real Registry products. No product truth is invented here.
  *
- * Motion contract: every `[data-story]` section gets `.is-in` once from a
- * single IntersectionObserver in portal.js; all story/beat animations key off
- * `.band-story.is-in`. `[data-dots="human"]` hosts are filled with .story-dot.
+ * Motion contract (V3.2): every `[data-story]` section gets `.is-in` once from
+ * a single IntersectionObserver in portal.js, and carries its own volumetric
+ * sculpture (`[data-section-sculpture]`, same shared engine as the Hero).
+ * Reduced motion: each canvas shows ONE static resolved sculpture.
  */
 function brandValueBand() {
   const B = homeCopy.brand;
   return `<section class="band band-story" id="brand" data-section="top" data-story>
-  <div class="band-index"><span class="band-num">${esc(B.index)}</span></div>
+  <div class="band-index"><span class="band-num">${esc(B.index)}</span><span class="band-kind">SIGNAL</span></div>
   <div class="story-body">
     <h2 class="story-title" lang="ko">${lines(B.titleLines)}</h2>
     <div class="story-rule" aria-hidden="true"></div>
@@ -192,46 +181,53 @@ function brandValueBand() {
       </ol>
     </div>
   </div>
-  <div class="story-figure" aria-hidden="true" data-dots="human"></div>
+  <div class="story-figure" aria-hidden="true" data-section-stage><canvas class="section-sculpture" data-section-sculpture="brand-value"></canvas></div>
 </section>`;
 }
 
+/**
+ * 02 YOU INSTRUCT — the prompt is its own readable composer; the sculpture
+ * receives that instruction and sends one signal through a narrowing channel.
+ */
 function youInstructBand() {
   const B = homeCopy.instruct;
   return `<section class="band band-story" id="instruct" data-section="top" data-story>
-  <div class="band-index"><span class="band-num">${esc(B.index)}</span></div>
+  <div class="band-index"><span class="band-num">${esc(B.index)}</span><span class="band-kind">INPUT</span></div>
   <div class="beat">
     <div>
       <h2 class="story-title beat-title" lang="ko">${lines(B.titleLines)}</h2>
       <p class="story-text" lang="ko">${lines(B.bodyLines)}</p>
     </div>
-    <div class="beat-visual">
-      <div class="beat-dots" data-dots="human"></div>
-      <div class="prompt" aria-label="${esc(B.exampleAria)}">
+    <div class="beat-visual instruction-visual">
+      <div class="instruction-composer" aria-label="${esc(B.exampleAria)}">
         <span class="label prompt-example">${esc(B.exampleLabel)}</span>
         <span class="prompt-cursor" aria-hidden="true">›</span>
         <span class="prompt-text">${esc(B.exampleText)}</span>
       </div>
-      <span class="signal-track" aria-hidden="true"><i class="signal-runner"></i></span>
+      <div class="receiver-stage" aria-hidden="true" data-section-stage><canvas class="section-sculpture" data-section-sculpture="you-instruct"></canvas></div>
     </div>
   </div>
 </section>`;
 }
 
+/**
+ * 03 AI WORKS — a modular machine core assembles and tests through four stages.
+ * The stage labels remain supporting metadata below the object.
+ */
 function aiWorksBand() {
   const B = homeCopy.works;
-  return `<section class="band band-story" id="works" data-section="top" data-story>
-  <div class="band-index"><span class="band-num">${esc(B.index)}</span></div>
+  return `<section class="band band-story process-band" id="works" data-section="top" data-story>
+  <div class="band-index"><span class="band-num">${esc(B.index)}</span><span class="band-kind">PROCESS</span></div>
   <div class="beat">
     <div>
       <h2 class="story-title beat-title" lang="ko">${lines(B.titleLines)}</h2>
       <p class="story-text" lang="ko">${lines(B.bodyLines)}</p>
     </div>
-    <div class="beat-visual">
+    <div class="beat-visual process-visual" data-works-visual>
+      <div class="engine-stage" aria-hidden="true" data-section-stage><canvas class="section-sculpture" data-section-sculpture="ai-works"></canvas></div>
       <ol class="states" aria-label="${esc(B.statesLabel)}">
         ${B.states.map((s, i) => `<li class="chip state" style="--i:${i}"><i class="state-dot" aria-hidden="true"></i>${esc(s)}</li>`).join('')}
       </ol>
-      <span class="work-line" aria-hidden="true"></span>
     </div>
   </div>
 </section>`;
@@ -294,11 +290,14 @@ ${youInstructBand()}
 ${aiWorksBand()}
 
 <section class="band band-story band-resolve" id="products" data-section="products" data-story>
-  <div class="band-index"><span class="band-num">${esc(R.index)}</span></div>
+  <div class="band-index"><span class="band-num">${esc(R.index)}</span><span class="band-kind">RESULT</span></div>
   <div class="story-body">
     <h2 class="story-title" lang="ko">${lines(R.titleLines)}</h2>
     <p class="story-text" lang="ko">${lines(R.bodyLines)}</p>
+    <div class="story-rule" aria-hidden="true"></div>
+    <p class="band-status" data-resolve-status>RESULT READY · REAL TOOL</p>
   </div>
+  <div class="resolve-stage" aria-hidden="true" data-section-stage><canvas class="section-sculpture" data-section-sculpture="real-tool"></canvas></div>
   <div class="grid grid-3">${products.map(productTile).join('')}</div>
 </section>
 

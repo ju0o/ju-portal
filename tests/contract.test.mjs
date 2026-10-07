@@ -504,11 +504,15 @@ test('Home motion is deterministic and reduced motion resolves content immediate
   assert.ok(css.includes('white-space: nowrap') && css.includes('word-break: keep-all'));
   assert.ok(css.includes('@media (prefers-reduced-motion: reduce)'));
   assert.ok(css.includes('animation: none !important') && css.includes('transition: none !important'));
-  assert.ok(css.includes('APPEAR') && css.includes('ASSEMBLE') && css.includes('RESOLVE'));
+  assert.ok(
+    ['APPEAR', 'CONNECT', 'PROCESS', 'RESOLVE'].every((t) => css.includes(t)),
+    'the motion grammar tokens must be documented in CSS',
+  );
   assert.ok(js.includes("window.matchMedia('(prefers-reduced-motion: reduce)')"));
   assert.ok(js.includes('IntersectionObserver'));
   assert.ok(!js.includes('Math.random'));
   assert.ok(js.includes("'(hover: hover) and (pointer: fine)'"));
+  assert.ok(js.includes('static: 0.995'), 'lower forms must have a distinct resolved static pose');
 });
 
 test('Home motion hooks form one contract across markup, CSS and JS', () => {
@@ -524,14 +528,25 @@ test('Home motion hooks form one contract across markup, CSS and JS', () => {
     assert.ok(js.includes(`'${cls}'`), `portal.js must toggle .${cls}`);
     assert.ok(new RegExp(`\\.${cls}\\b`).test(css), `portal.css must style .${cls}`);
   }
-  // Retired hooks from the superseded implementation must not come back.
-  for (const dead of ['hero-line', 'data-phase', 'data-beat', 'data-workflow', 'data-work-step', 'signal-word', 'is-live', '--signal-x', '--from-x']) {
+  // Retired hooks from the superseded implementations must not come back: the
+  // hero no longer carries a status rail, node dots, caption nodes or a hidden
+  // portrait texture — it is ONE canvas object.
+  for (const dead of [
+    'hero-line', 'data-phase', 'data-beat', 'data-workflow', 'data-work-step',
+    'signal-word', 'is-live', '--signal-x', '--from-x',
+    'data-startup', 'data-hero-mark', 'data-sys-state', 'startup-frame',
+    'sys-node', 'sys-rule', 'startup-meta', 'hero-mark', 'hero-texture',
+    'data-signal-field', 'data-founder-dots', 'portrait-dot', 'signal-paths', '--sx',
+  ]) {
     assert.ok(!html.includes(dead), `home markup still carries retired hook ${dead}`);
     assert.ok(!css.includes(dead), `portal.css still references retired hook ${dead}`);
     assert.ok(!js.includes(dead), `portal.js still references retired hook ${dead}`);
   }
   // Markup hooks the script depends on.
-  for (const hook of ['data-hero', 'data-signal-field', 'data-founder-dots', 'data-story', 'data-dots="human"']) {
+  for (const hook of [
+    'data-hero', 'data-hero-stage', 'data-hero-sculpture', 'data-story',
+    'data-section-stage', 'data-section-sculpture',
+  ]) {
     assert.ok(html.includes(hook), `home must carry ${hook}`);
     assert.ok(js.includes(hook.split('=')[0]), `portal.js must read ${hook}`);
   }
@@ -678,5 +693,208 @@ test('JuDoctor / JuControler / JuCeipt / JuMiner are not promoted as usable prod
       !existsSync(join(DIST, 'products', slug, 'index.html')),
       slug + ' must not have a public product route',
     );
+  }
+});
+
+// ---------- hero sculpture: one volumetric ASCII object ----------
+
+test('sculpture: the hero carries ONE volumetric object, not UI decoration', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+  assert.ok(/<canvas[^>]*data-hero-sculpture/.test(html), 'the hero must carry the sculpture canvas');
+  assert.ok(/class="hero-stage"[^>]*data-hero-stage/.test(html), 'the canvas must sit in a named stage');
+  assert.ok(css.includes('.hero-stage') && css.includes('.hero-sculpture'), 'the stage + canvas must be styled');
+  // The object must be genuinely rendered, not a CSS fake.
+  assert.ok(js.includes('getContext') && js.includes('putImageData'), 'the object must be drawn to the canvas');
+  assert.ok((html.match(/data-hero-sculpture/g) || []).length === 1, 'the hero must carry exactly one object');
+  // The previous misinterpretations must not remain in the hero.
+  for (const dead of ['data-startup', 'data-hero-mark', 'hero-texture', 'sys-node', 'startup-frame', 'data-signal-field', 'portrait-dot']) {
+    assert.ok(!html.includes(dead), 'the hero must not carry retired decoration ' + dead);
+  }
+});
+
+test('sculpture: the loop is seamless and pauses offscreen', () => {
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+  assert.ok(/LOOP_MS\s*=\s*opts\.loopMs\s*\|\|\s*9000/.test(js), 'the loop must have a stable default and per-scene period');
+  assert.ok(js.includes('requestAnimationFrame') && js.includes('cancelAnimationFrame'), 'the loop runs on rAF and can stop');
+  assert.ok(js.includes('IntersectionObserver') && /else stopLoop\(\)/.test(js), 'render loops pause when their stage leaves view');
+  assert.ok(/if \(entries\[i\]\.isIntersecting\) \{\s+if \(!built\) \{ buildLattice\(\); built = true; draw\(0\); \}/.test(js), 'lower point lattices are deferred until visible');
+  // Seamless is structural: no CSS keyframe may loop, and the canvas is a real object.
+  assert.ok(css.includes('.hero-sculpture'), 'the canvas must be styled');
+  assert.ok(!/\binfinite\b/.test(css), 'no CSS animation may loop forever');
+});
+
+test('sculptures initialize after the shared material is defined', () => {
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+  const material = js.indexOf('var VOL_LEVELS = [');
+  const renderer = js.indexOf('function volumetric(');
+  const heroInit = js.indexOf('initHeroSculpture();');
+  const lowerInit = js.indexOf('initSectionSculptures();');
+  assert.ok(material >= 0 && renderer > material, 'the shared renderer follows its material definition');
+  assert.ok(heroInit > renderer && lowerInit > heroInit, 'Hero and lower scenes initialize after the shared renderer');
+});
+
+test('V3.3: lower scenes use four semantic forms in the shared raster renderer', () => {
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+  const forms = ['architecture', 'receiver', 'engine', 'output'];
+  for (const form of forms) {
+    assert.ok(js.includes(`form: '${form}'`), `${form} form must be assigned once`);
+    assert.ok(js.includes(`FORM === '${form}'`), `${form} must keep distinct reduced-motion geometry`);
+  }
+  assert.equal((js.match(/static: 0\.995/g) || []).length, 4, 'all lower forms resolve to their own static final geometry');
+  assert.ok(js.includes('var VOL_LEVELS = ['), 'Hero and lower scenes keep the shared dot material');
+  assert.ok(/var FORM = opts\.form \|\| 'hero'/.test(js), 'the shared renderer accepts a semantic lower form');
+  assert.ok(js.includes("FORM !== 'hero' && window.innerWidth < 520 && q.mobileSkip"), 'mobile thins lower forms while preserving Hero density');
+  assert.ok(js.includes('q.group === \'module\'') && js.includes('q.group === \'scan\''), 'the engine has assembly and scan mechanics');
+  assert.ok(js.includes("'plane'") && js.includes("q.group === 'flow'"), 'the output resolves into flat product planes');
+});
+
+test('V3.3: copy, composer, state metadata and motion canvases occupy separate zones', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  assert.ok(/instruction-composer[^]*receiver-stage/.test(html), 'instruction text precedes its independent receiver canvas');
+  assert.ok(/engine-stage[^]*class="states"/.test(html), 'engine labels follow the canvas in normal document flow');
+  assert.ok(css.includes('.instruction-composer') && css.includes('.receiver-stage'), '02 has isolated copy and sculpture layout rules');
+  assert.ok(/\.states\s*\{[^}]*position:\s*relative/s.test(css), '03 metadata cannot overlay moving dots');
+  assert.ok(!css.includes('.beat-visual::before'), 'no decorative line is drawn through a motion stage');
+});
+
+test('V3.3: Korean narrative typography stays readable across mobile breakpoints', () => {
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  assert.ok(/\.story-title\s*\{[^}]*font-size:\s*clamp\(32px,\s*4vw,\s*58px\)/s.test(css), 'section headings keep a 32px minimum');
+  assert.ok(/\.story-text\s*\{[^}]*font-size:\s*18px[^}]*line-height:\s*1\.68[^}]*max-width:\s*620px/s.test(css), 'body copy has readable size, leading and line width');
+  assert.ok(css.includes('color: #c2c4bd'), 'body copy uses a high-contrast text color');
+  assert.ok(css.includes('.story-text { font-size: 17px; line-height: 1.7; }'), 'compact layouts keep body copy at least 17px');
+  assert.ok(css.includes('.story-title, .beat-title { font-size: clamp(32px, 9vw, 38px); }'), '390px titles remain at least 32px');
+  assert.ok(css.includes('.instruction-visual { grid-template-columns: minmax(0, 1fr); }'), 'mobile reflows the composer above its sculpture');
+  assert.ok(css.includes('.engine-stage { min-height: 250px; aspect-ratio: 1.35 / 1; }'), 'mobile keeps the process sculpture visible below its copy');
+});
+
+test('hero: pointer response is LOCAL and secondary, never whole-hero parallax', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+  assert.ok(/pointermove/.test(js) && /requestAnimationFrame/.test(js), 'pointer response is frame-limited');
+  assert.ok(/\(hover: hover\) and \(pointer: fine\)/.test(js), 'pointer response is desktop fine-pointer only');
+  // The sculpture deformation is bounded (subtle) and cannot move the panel.
+  assert.ok(/P_RADIUS/.test(js) && /P_MAX/.test(js), 'the deformation must be bounded and subtle');
+  assert.ok(css.includes('--dx'), 'the lower-section dot fields keep their local displacement variable');
+  // Only small local elements move; the hero and its copy layer never transform.
+  assert.ok(!/\.hero\s*\{[^}]*transform:/s.test(css), 'the hero itself never transforms (no parallax)');
+  assert.ok(!/\.hero-copy\s*\{[^}]*transform:/s.test(css), 'the copy layer never transforms');
+  assert.ok(!html.includes('parallax'), 'no parallax');
+});
+
+test('motion: each lower section carries a motion/state hook', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  assert.ok(html.includes('id="brand"') && html.includes('data-section-sculpture="brand-value"') && css.includes('.story-rule'), '01 assembles an architectural form');
+  assert.ok(html.includes('instruction-composer') && html.includes('data-section-sculpture="you-instruct"'), '02 connects the instruction to its receiver');
+  assert.ok(html.includes('data-section-sculpture="ai-works"') && css.includes('.chip.state'), '03 pairs its processing core with supporting stages');
+  // 04 process completes → a result state resolves → product tiles deliver
+  assert.ok(html.includes('data-story') && css.includes('.band-status'), '04 resolves a result state');
+  assert.ok(css.includes('.band-resolve.is-resolved .grid .tile'), '04 delivers product tiles after resolution');
+});
+
+test('sculpture: reduced motion paints one static frame (no loop)', () => {
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  assert.ok(/draw\(reduced \? STATIC_PHASE : 0\);\s*\}\s*if \(reduced\) return;/.test(js), 'reduced motion must draw one resolved frame and return before starting the loop');
+  assert.ok(/STATIC_PHASE/.test(js), 'a fixed resolved phase must exist');
+  const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.ok(reduced.includes('animation: none !important'), 'reduced motion removes all CSS animation');
+  assert.ok(!/\binfinite\b/.test(reduced), 'reduced motion must not loop');
+});
+
+test('hero: two-column layout — copy beside ONE object, no overlap', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  assert.ok(/\.hero\s*\{[^}]*grid-template-columns:/.test(css), 'hero must be a two-column grid');
+  assert.ok(html.includes('class="hero-copy"') && html.includes('class="hero-stage"'), 'hero must be copy + stage');
+  assert.ok(!/\.hero-copy\s*\{[^}]*position:\s*absolute/s.test(css), 'the copy must not overlay the object');
+  // The visual area holds exactly one object.
+  assert.ok((html.match(/data-hero-sculpture/g) || []).length === 1, 'exactly one sculpture in the visual area');
+  // The previous misinterpretations' UI and poster objects are gone.
+  for (const dead of ['hero-console', 'data-signal-rail', 'signal-node', 'hero-wordmark', 'data-signal-field', 'data-founder-dots']) {
+    assert.ok(!html.includes(dead), 'no retired hero object: ' + dead);
+  }
+});
+
+test('motion: no infinite narrative loops', () => {
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  assert.ok(!/animation-iteration-count:\s*infinite/.test(css), 'no infinite iteration count');
+  assert.ok(!/animation:[^;}]*\binfinite\b/.test(css), 'no animation shorthand loops forever');
+  assert.ok(!/\binfinite\b/.test(css), 'narrative motion must settle');
+});
+
+test('motion: AI WORKS orchestrates stages along one flow', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+
+  for (const s of ['Planning', 'Generating', 'Building', 'Testing']) {
+    assert.ok(html.includes(s), 'AI WORKS must list state ' + s);
+  }
+  assert.ok(html.includes('data-works-visual'), 'AI WORKS must carry the orchestration visual');
+  assert.ok(/--i:\s*\d/.test(html), 'states must carry a stagger index (--i)');
+  assert.ok(html.includes('class="engine-stage"'), 'the machine core has its own canvas stage');
+  assert.ok(/\.band-story\.is-in \.chip\.state\b/.test(css), 'states must activate on scene entry');
+  assert.ok(css.includes('ju-state-on') && css.includes('ju-state-dot-on'), 'state activation keyframes must exist');
+  assert.ok(!/\binfinite\b/.test(css), 'the orchestration must play once, never loop');
+  assert.ok(js.includes('.disconnect()'), 'observers must disconnect after resolve');
+});
+
+test('motion: REAL TOOL delivers the process output as product tiles', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+  assert.ok(/\.band-resolve\.is-resolved \.grid \.tile\b/.test(css), 'product tiles must land after the sculpture resolves');
+  assert.ok(js.includes('opts.onResolve') && js.includes("classList.add('is-resolved')"), 'the volumetric resolution must trigger delivery');
+  assert.ok(/<div class="resolve-stage"[^]*data-section-sculpture="real-tool"/.test(html), 'the real-tool sculpture must have its own bounded stage');
+  assert.ok(html.includes('data-cta data-slug="juqode"'), 'delivery must keep the real JuQode CTA');
+  assert.ok(html.includes('data-showroom="jutell"'), 'delivery must keep the real JuTell showroom');
+});
+
+test('motion V3.1: the hero JU identity is structural, not decoration', () => {
+  // The JU-moment of the loop is an etched fold + a longer dwell + a lime-core
+  // breath — all three must be in the renderer, none as a separate overlay.
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+  assert.ok(js.includes('WEIGHTS'), 'the JU state must dwell longer in the blend');
+  assert.ok(js.includes('jcut'), 'the JU inner fold must be etched into the form');
+  assert.ok(/ju > 0\.55 && lvl >= 3/.test(js), 'lime must live only in the bright core at the JU moment');
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  assert.ok((html.match(/data-hero-sculpture/g) || []).length === 1, 'JU identity must stay inside the one hero object');
+});
+
+test('motion: lower sections use the same signal grammar', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  for (const kind of ['SIGNAL', 'INPUT', 'PROCESS', 'RESULT']) {
+    assert.ok(html.includes('band-kind">' + kind), 'section must carry the ' + kind + ' tag');
+  }
+});
+
+test('motion: mobile does not overflow', () => {
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  assert.ok(!/100vw/.test(css), 'must not introduce a 100vw width');
+  const mobile = css.slice(css.indexOf('@media (max-width: 860px)'));
+  assert.ok(mobile.includes('.hero-stage'), 'mobile must adapt the sculpture stage');
+});
+
+test('motion V2: Korean headline and public routes are intact', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  for (const line of [
+    '비개발자의 생각이 말이 되고,',
+    '말이 AI의 작업이 되고,',
+    '그 결과가 다시 사람이 이해할 수 있는',
+    '도구가 됩니다.',
+  ]) {
+    assert.ok(html.includes(line), 'Korean headline line missing: ' + line);
+  }
+  assert.ok(html.includes('data-discovery'), 'Discovery must remain');
+  assert.ok(html.includes('data-cta data-slug="juqode"'), 'JuQode CTA must remain');
+  for (const slug of ['juqode', 'jutell']) {
+    assert.ok(existsSync(join(DIST, 'products', slug, 'index.html')), slug + ' deep route must remain');
   }
 });

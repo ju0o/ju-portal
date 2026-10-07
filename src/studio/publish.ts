@@ -22,6 +22,9 @@ import { spawnSync } from 'node:child_process';
 import { execGit } from './git';
 import type { PublishPlan } from './git';
 
+// Release this only after an explicit project-level Git Freeze lift.
+const GIT_FREEZE_ACTIVE = true;
+
 export interface PublishResult {
   done: boolean;
   refused?: boolean;
@@ -35,12 +38,12 @@ export interface PublishResult {
 }
 
 export function isGitAllowed(): boolean {
-  return process.env.STUDIO_ALLOW_GIT === '1' || process.env.STUDIO_ALLOW_GIT === 'true';
+  return !GIT_FREEZE_ACTIVE && (process.env.STUDIO_ALLOW_GIT === '1' || process.env.STUDIO_ALLOW_GIT === 'true');
 }
 
 /**
  * Execute the publish plan. Safe to call during a Git Freeze: returns a refusal
- * with no git side effects until `STUDIO_ALLOW_GIT` is explicitly enabled.
+ * with no git side effects until the project-level freeze is explicitly lifted.
  */
 export function executePublish(cwd: string, plan: PublishPlan): PublishResult {
   if (!isGitAllowed()) {
@@ -48,7 +51,7 @@ export function executePublish(cwd: string, plan: PublishPlan): PublishResult {
       done: false,
       refused: true,
       reason: 'GIT_FREEZE_ACTIVE',
-      message: 'GIT FREEZE ACTIVE — Commit/Push disabled. Re-enable with STUDIO_ALLOW_GIT=1.',
+      message: 'GIT FREEZE ACTIVE — Commit/Push disabled.',
     };
   }
   if (plan.remoteMainChanged) {

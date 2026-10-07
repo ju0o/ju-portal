@@ -17,9 +17,9 @@ import { join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import {
-  loadHome, loadEntry, listSection, saveHome, serializeHomeSource,
+  loadHome, loadEntry, listSection, saveHome,
   validateHome, validateEntry, saveEntry, saveArraySection, saveProductsIndex,
-  deleteEntryFile, type Section, type EntryInfo,
+  deleteEntryFile, userFacingValidationMessage, type Section, type EntryInfo,
 } from './content';
 import { getState, buildPublishPlan } from './git';
 import { listMedia, acceptUpload, MEDIA_SLOTS } from './media';
@@ -33,6 +33,18 @@ const PORT = Number(process.env.JU_STUDIO_PORT || '4012');
 const BUILD_TIMEOUT_MS = 240000;
 
 let lastVerify: VerifyReport | null = null;
+
+class ClientInputError extends Error {
+  statusCode = 400;
+}
+
+function errorStatus(error: unknown): number {
+  return error instanceof ClientInputError ? error.statusCode : 500;
+}
+
+function validationBody(errors: string[]) {
+  return { errors: errors.map(userFacingValidationMessage), technicalErrors: errors };
+}
 
 /* ---- env loading (mirrors scripts/render-pages.mjs: lowest precedence first) ---- */
 async function loadEnvFile(file: string) {
@@ -119,20 +131,20 @@ async function handleState(_req: IncomingMessage, res: ServerResponse) {
 async function handleHomeGet(_req: IncomingMessage, res: ServerResponse) {
   const home = await loadHome(ROOT);
   const errors = validateHome(home);
-  json(res, 200, { home, valid: errors.length === 0, errors });
+  json(res, 200, { home, valid: errors.length === 0, ...validationBody(errors) });
 }
 
 async function handleHomeValidate(body: Record<string, unknown>) {
   const home = body.home ?? body;
   const errors = validateHome(home);
-  return { valid: errors.length === 0, errors };
+  return { valid: errors.length === 0, ...validationBody(errors) };
 }
 
 async function handleHomeSave(req: IncomingMessage, res: ServerResponse) {
   const body = await readJson(req);
   const home = body.home ?? body;
   const errors = validateHome(home);
-  if (errors.length) return json(res, 400, { ok: false, errors });
+  if (errors.length) return json(res, 400, { ok: false, ...validationBody(errors) });
   const r = await saveHome(home as Record<string, unknown>, ROOT);
   json(res, r.ok ? 200 : 500, { ok: r.ok, changedFiles: ['content/home.ts'], error: r.error });
 }
@@ -159,7 +171,7 @@ async function handleEntrySave(req: IncomingMessage, res: ServerResponse, sectio
   try { existing = (await loadEntry(section, slug, ROOT)) as Record<string, unknown> ?? {}; } catch {}
   const entry: Record<string, unknown> = { ...existing, ...incoming, slug };
   const errors = validateEntry(entry, toEntryKind(section));
-  if (errors.length) return json(res, 400, { ok: false, errors });
+  if (errors.length) return json(res, 400, { ok: false, ...validationBody(errors) });
 
   if (section === 'products') {
     const r = await saveEntry(section, slug, entry, ROOT);
@@ -207,7 +219,7 @@ async function handlePromoteLabToProduct(req: IncomingMessage, res: ServerRespon
     updatedAt: new Date().toISOString().split('T')[0],
   };
   const errors = validateEntry(product, 'product');
-  if (errors.length) return json(res, 400, { ok: false, errors });
+  if (errors.length) return json(res, 400, { ok: false, ...validationBody(errors) });
 
   if (body.create === true) {
     const r = await saveEntry('products', product.slug as string, product, ROOT);
@@ -316,22 +328,25 @@ function toEntryKind(section: Section) {
 /* ---------------- shell ---------------- */
 
 const SHELL = `<!doctype html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>JU Portal Studio</title>
+  <title>JU Portal 관리</title>
   <link rel="stylesheet" href="/studio/assets/app.css">
 </head>
 <body>
   <div id="app">
     <header class="top">
-      <a class="brand" href="/studio/">JU PORTAL STUDIO</a>
+      <a class="brand" href="#overview">JU Portal 관리</a>
       <span class="page" id="page-title"></span>
+      <button class="help-btn" id="help-btn" type="button" onclick="openHelp()">? 사용법</button>
     </header>
-    <nav class="nav" id="nav"></nav>
+    <div class="workflow" id="workflow" aria-label="작업 순서"></div>
+    <nav class="nav" id="nav" aria-label="영역"></nav>
     <main id="content" class="content"></main>
     <footer class="statusbar" id="status"></footer>
+    <div class="help-backdrop" id="help-modal" hidden></div>
   </div>
   <script>window.STUDIO='/studio';</script>
   <script src="/studio/assets/app.js"></script>
@@ -351,7 +366,9 @@ async function route(req: IncomingMessage, res: ServerResponse) {
 
   // Studio UI assets (src/studio/ui) — never copied into dist.
   if (req.method === 'GET' && path.startsWith('/studio/assets/')) {
-    const name = decodeURIComponent(path.slice('/studio/assets/'.length));
+    let name: string;
+    try { name = decodeURIComponent(path.slice('/studio/assets/'.length)); }
+    catch { return bytes(res, 400, Buffer.from('bad path', 'utf8'), 'text/plain'); }
     if (!/^[A-Za-z0-9._-]+$/.test(name)) return bytes(res, 403, Buffer.from('forbidden', 'utf8'), 'text/plain');
     const file = safeJoin(join(ROOT, 'src', 'studio', 'ui'), name);
     if (!file) return bytes(res, 403, Buffer.from('forbidden', 'utf8'), 'text/plain');
@@ -394,7 +411,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     try {
       await routeApi(seg, method, req, res);
     } catch (e) {
-      json(res, 500, { ok: false, error: (e as Error).message });
+      json(res, errorStatus(e), { ok: false, error: (e as Error).message });
     }
     return;
   }
@@ -445,11 +462,11 @@ async function routeApi(seg: string[], method: string, req: IncomingMessage, res
 }
 
 function asSection(s: string): Section {
-  if (!['products', 'labs', 'skills', 'radar'].includes(s)) throw new Error('invalid section: ' + s);
+  if (!['products', 'labs', 'skills', 'radar'].includes(s)) throw new ClientInputError('invalid section: ' + s);
   return s as Section;
 }
 function slugOf(s: string): string {
-  if (!/^[a-z0-9-]+$/.test(s)) throw new Error('invalid slug: ' + s);
+  if (!/^[a-z0-9-]+$/.test(s)) throw new ClientInputError('invalid path or slug');
   return s;
 }
 
@@ -461,7 +478,7 @@ async function start() {
   const server = createServer((req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     Promise.resolve(route(req, res)).catch((e) => {
-      if (!res.headersSent) json(res, 500, { ok: false, error: (e as Error).message });
+      if (!res.headersSent) json(res, errorStatus(e), { ok: false, error: (e as Error).message });
     });
   });
   server.listen(PORT, HOST, () => {

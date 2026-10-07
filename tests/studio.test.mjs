@@ -1,11 +1,13 @@
 import { test, describe, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync, rmSync, cpSync, mkdtempSync, readdirSync, statSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { createServer as createTcpServer } from 'node:net';
+import { once } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { loadHome, loadEntry, listSection, saveHome, saveEntry, serializeHomeSource, validateHome, validateEntry, atomicWrite } from '../src/studio/content.ts';
+import { loadHome, loadEntry, listSection, saveHome, saveEntry, serializeHomeSource, serializeEntryBody, validateHome, validateEntry, userFacingValidationMessage, atomicWrite } from '../src/studio/content.ts';
 import { getState, proposedBranchName, getChangedFiles } from '../src/studio/git.ts';
 import { acceptUpload, listMedia, MEDIA_SLOTS } from '../src/studio/media.ts';
 import { runPortalBuild } from '../src/studio/preview.ts';
@@ -37,6 +39,19 @@ function walk(dir) {
     else out.push(full);
   }
   return out;
+}
+function freshStudioRoot() {
+  const root = mkdtempSync(join(tmpdir(), 'studio-source-roundtrip-'));
+  cpSync(join(ROOT, 'content'), join(root, 'content'), { recursive: true });
+  cpSync(join(ROOT, 'src'), join(root, 'src'), { recursive: true });
+  return root;
+}
+async function freePort() {
+  const server = createTcpServer();
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  return port;
 }
 function fakeRunner(results) {
   return (cmd, args) => {
@@ -72,6 +87,75 @@ describe('Studio: local-only server', () => {
     const dirs = readdirSync(join(DIST, 'products')).filter((n) => statSync(join(DIST, 'products', n)).isDirectory());
     assert.deepEqual(dirs.sort(), ['juqode', 'jutell'], 'render-pages must exclude index.ts from product routes');
   });
+
+  test('Studio client api() never double-prefixes absolute API paths', () => {
+    const src = readFileSync(join(SRC, 'studio/ui/app.js'), 'utf8');
+    const ro = src.match(/const ROOT = [^\n]+/);
+    const ap = src.match(/const api = [^\n]+/);
+    assert.ok(ro && ap, 'app.js must define ROOT and api');
+    const api = new Function('window', ro[0] + '\n' + ap[0] + '; return api;')({ STUDIO: '/studio' });
+    assert.equal(api('/studio/api/state'), '/studio/api/state', 'absolute path must be left untouched');
+    assert.equal(api('/studio/api/home'), '/studio/api/home');
+    assert.equal(api('api/state'), '/studio/api/state', 'a bare relative path joins the Studio base');
+  });
+
+  test('invalid paths and invalid saves are client errors; Git Freeze stays active', async () => {
+    const port = await freePort();
+    const base = `http://127.0.0.1:${port}`;
+    const child = spawn(process.execPath, [join(ROOT, 'node_modules/tsx/dist/cli.mjs'), join(ROOT, 'src/studio/server.ts')], {
+      cwd: ROOT,
+      env: { ...process.env, JU_STUDIO_PORT: String(port), STUDIO_ALLOW_GIT: '1' },
+      stdio: 'ignore',
+    });
+    try {
+      let ready = false;
+      for (let i = 0; i < 60 && !ready; i++) {
+        if (child.exitCode !== null) throw new Error(`Studio server exited with ${child.exitCode}`);
+        try { ready = (await fetch(base + '/studio/api/health')).ok; } catch {}
+        if (!ready) await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      assert.equal(ready, true, 'Studio server should start for the HTTP regression check');
+
+      const state = await (await fetch(base + '/studio/api/state')).json();
+      assert.equal(state.gitAllowed, false, 'an environment override cannot bypass the active freeze');
+      const badSection = await fetch(base + '/studio/api/entries/not-a-section');
+      assert.ok(badSection.status >= 400 && badSection.status < 500, `invalid section returned ${badSection.status}`);
+      const badPath = await fetch(base + '/studio/api/entries/products/%2e%2e%2fhome');
+      assert.ok(badPath.status >= 400 && badPath.status < 500, `invalid path returned ${badPath.status}`);
+
+      const homeFile = join(ROOT, 'content/home.ts');
+      const before = readFileSync(homeFile);
+      const invalid = await loadHome(ROOT);
+      invalid.hero.label = '';
+      const save = await fetch(base + '/studio/api/home', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ home: invalid }),
+      });
+      assert.equal(save.status, 400, 'invalid Home SAVE should be rejected as input');
+      const result = await save.json();
+      assert.match(result.errors[0], /필수 항목/);
+      assert.equal(Buffer.compare(readFileSync(homeFile), before), 0, 'invalid SAVE must leave source bytes untouched');
+    } finally {
+      const exited = once(child, 'exit').catch(() => []);
+      child.kill('SIGTERM');
+      await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 2500))]);
+    }
+  });
+});
+
+test('Studio reports restored GitHub access while Git Freeze keeps Publish disabled', () => {
+  const ui = readFileSync(join(SRC, 'studio/ui/app.js'), 'utf8');
+  const publish = readFileSync(join(SRC, 'studio/publish.ts'), 'utf8');
+  assert.match(ui, /GitHub <b>접근 복구됨<\/b>/);
+  assert.match(ui, /Git Freeze <b>유지 중 · 게시 잠김<\/b>/);
+  assert.doesNotMatch(ui, /복구 대기 중/);
+  assert.match(ui, /button class="btn" type="button" disabled><span>게시 잠김<\/span>/);
+  assert.match(ui, /Freeze가 명시적으로 해제되기 전에는 브랜치·커밋·PR을 만들지 않습니다/);
+  assert.match(publish, /const GIT_FREEZE_ACTIVE = true/);
+  assert.match(ui, /role="dialog" aria-modal="true" aria-labelledby="help-title"/);
+  assert.match(ui, /modal\.querySelector\('button'\)\?\.focus\(\)/);
+  assert.match(ui, /target\?\.focus\?\.\(\)/);
 });
 
 // ============================================================
@@ -132,6 +216,80 @@ describe('Studio: content SSOT', () => {
     assert.ok(src.includes('export interface HomeCopy'), 'interface header preserved on save');
   });
 
+  test('Home save and exact value restore return to byte-identical source', async () => {
+    const root = freshStudioRoot();
+    try {
+      const file = join(root, 'content/home.ts');
+      const originalBytes = readFileSync(file);
+      const original = await loadHome(root);
+      const temporary = structuredClone(original);
+      temporary.hero.label = 'Temporary Studio round-trip value';
+      const first = await saveHome(temporary, root);
+      assert.equal(first.ok, true, first.error);
+      assert.equal((await loadHome(root)).hero.label, temporary.hero.label);
+      const restored = await loadHome(root);
+      restored.hero.label = original.hero.label;
+      const second = await saveHome(restored, root);
+      assert.equal(second.ok, true, second.error);
+      assert.deepEqual(readFileSync(file), originalBytes, 'Home source bytes must exactly return to the starting state');
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+
+  test('product save and exact value restore return to byte-identical source', async () => {
+    const root = freshStudioRoot();
+    try {
+      const file = join(root, 'content/products/jutell.ts');
+      const originalBytes = readFileSync(file);
+      const original = await loadEntry('products', 'jutell', root);
+      const temporary = { ...original, summary: 'Temporary Studio round-trip value.' };
+      const first = await saveEntry('products', 'jutell', temporary, root);
+      assert.equal(first.ok, true, first.error);
+      assert.equal((await loadEntry('products', 'jutell', root)).summary, temporary.summary);
+      const restored = { ...(await loadEntry('products', 'jutell', root)), summary: original.summary };
+      const second = await saveEntry('products', 'jutell', restored, root);
+      assert.equal(second.ok, true, second.error);
+      assert.deepEqual(readFileSync(file), originalBytes, 'product source bytes must exactly return to the starting state');
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+
+  test('new product source has no generated Studio ownership comment', () => {
+    const generated = serializeEntryBody({ slug: 'new-product', title: 'New', summary: 'Draft', status: 'coming_soon' }, 'product');
+    assert.doesNotMatch(generated, /\/\/ Studio:/);
+  });
+
+  test('surgical edits preserve comments and property order without Studio comments', async () => {
+    const root = freshStudioRoot();
+    try {
+      const homeFile = join(root, 'content/home.ts');
+      const homeBefore = readFileSync(homeFile, 'utf8');
+      const home = await loadHome(root);
+      home.meta.title = 'Temporary title';
+      assert.equal((await saveHome(home, root)).ok, true);
+      const homeAfter = readFileSync(homeFile, 'utf8');
+      assert.ok(homeAfter.includes('/** Accessible label for the same prompt'), 'Home comments remain intact');
+      assert.ok(homeAfter.includes('/** Home Radar BAND copy.'), 'inline copy comments remain intact');
+      const homeOrder = (source) => ['hero:', 'brand:', 'instruct:', 'works:', 'resolve:', 'sections:', 'notify:', 'meta:']
+        .map((key) => [key, source.indexOf(key, source.indexOf('export const home'))])
+        .sort((a, b) => a[1] - b[1]).map(([key]) => key);
+      assert.deepEqual(homeOrder(homeAfter), homeOrder(homeBefore));
+      assert.doesNotMatch(homeAfter, /\/\/ Studio:/);
+
+      const productFile = join(root, 'content/products/jutell.ts');
+      const productBefore = readFileSync(productFile, 'utf8');
+      const product = await loadEntry('products', 'jutell', root);
+      product.summary = 'Temporary summary';
+      assert.equal((await saveEntry('products', 'jutell', product, root)).ok, true);
+      const productAfter = readFileSync(productFile, 'utf8');
+      assert.ok(productAfter.includes('// Beginner-facing Korean.'), 'product rationale comment remains intact');
+      assert.ok(productAfter.includes('// NOTE: this repository has 4 GitHub releases'), 'release comment remains intact');
+      const productOrder = (source) => ['slug:', 'title:', 'summary:', 'status:', 'media:', 'releases:', 'source:', 'updatedAt:']
+        .map((key) => [key, source.indexOf(key, source.indexOf('export default'))])
+        .sort((a, b) => a[1] - b[1]).map(([key]) => key);
+      assert.deepEqual(productOrder(productAfter), productOrder(productBefore));
+      assert.doesNotMatch(productAfter, /\/\/ Studio:/);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+
   test('an invalid Home edit does not reach disk (validation gate)', async () => {
     const before = readFileSync(join(TMP, 'content', 'home.ts'), 'utf8');
     const bad = await loadHome(TMP);
@@ -146,6 +304,13 @@ describe('Studio: content SSOT', () => {
 
 // ============================================================
 describe('Studio: save validation & rejection', () => {
+  test('npm and PyPI package validation has natural Korean user-facing text', () => {
+    assert.equal(
+      userFacingValidationMessage('npm/pypi release needs package'),
+      'npm 또는 PyPI 릴리스를 사용하려면 패키지 이름이 필요합니다.',
+    );
+  });
+
   test('valid product passes schema', () => {
     const entry = { slug: 'x', title: 'T', summary: 's', status: 'beta', releases: [], source: { url: 'https://x.example/' }, updatedAt: '2026-01-01' };
     assert.equal(validateEntry(entry, 'product').length, 0);
@@ -345,10 +510,11 @@ describe('Studio: Publish (frozen / dry-run)', () => {
     assert.equal(r.reason, 'GIT_FREEZE_ACTIVE', 'freeze refuses even a green plan');
   });
 
-  test('REMOTE_MAIN_CHANGED refuses even when git is allowed (no write issued)', () => {
+  test('STUDIO_ALLOW_GIT cannot bypass the active project Git Freeze', () => {
     const saved = process.env.STUDIO_ALLOW_GIT;
     process.env.STUDIO_ALLOW_GIT = '1';
     try {
+      assert.equal(isGitAllowed(), false);
       const r = executePublish(ROOT, {
         branch: 'studio/content-00000000-0000',
         head: '0'.repeat(40),
@@ -360,7 +526,7 @@ describe('Studio: Publish (frozen / dry-run)', () => {
         reasons: ['REMOTE_MAIN_CHANGED'],
       });
       assert.equal(r.refused, true);
-      assert.equal(r.reason, 'REMOTE_MAIN_CHANGED', 'must STOP when origin/main moved');
+      assert.equal(r.reason, 'GIT_FREEZE_ACTIVE', 'explicit freeze remains stronger than the environment flag');
     } finally {
       process.env.STUDIO_ALLOW_GIT = saved;
     }

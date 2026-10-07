@@ -196,38 +196,32 @@ a { color: inherit; text-decoration: none; }
 
 /* ══ hero ═══════════════════════════════════════════════════ */
 
-/* One poster, not a column beside an image. The founder field is a full-bleed
-   layer anchored to the right edge; the copy sits on top of it, so the type and
-   the portrait share the same space and the composition reads as one object.
-   The overlap is deliberate negative space, not collision: the field's own
-   radial mask dissolves its left edge exactly where the headline runs. */
+/* The hero is one headline column beside ONE large animated object — the JU
+   volumetric ASCII sculpture drawn on <canvas>. The object is the hero's
+   subject, not a poster; the type column and the stage sit in two columns and
+   never overlap. */
 .hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr);
   align-items: center;
-  min-height: min(92svh, 900px);
-  padding: clamp(56px, 7vw, 104px) 0 clamp(44px, 5vw, 72px);
+  gap: clamp(26px, 3.6vw, 60px);
+  min-height: min(86svh, 840px);
+  padding: clamp(56px, 7vw, 100px) 0 clamp(44px, 5vw, 72px);
   isolation: isolate;
 }
 
-/* The portrait bleeds past the right edge and behind the type. It is behind the
-   copy in stacking order, and never boxed: no border, no panel, no radius.
-   Sizing keeps the whole face in frame at the desktop hero scale rather than
-   cropping the crown, while still letting the field run off the right edge.
-   The field itself must receive pointer events: the per-particle displacement
-   is driven by a listener on this element. The decorative children below are
-   individually non-interactive, and the copy sits above at z-index 1 so its
-   links and the search field still take clicks. */
-.hero-signal {
-  position: absolute;
-  z-index: 0;
-  top: 50%;
-  right: -3%;
-  transform: translateY(-50%);
-  width: min(56vw, 700px);
-  aspect-ratio: 1 / 1.08;
+/* The sculpture's stage: a fluid square box. The <canvas> fills it and draws the
+   object inside, so the cloud can dissolve into the black hero instead of into a
+   frame — there is no panel, border or card around it. */
+.hero-stage {
+  position: relative;
+  justify-self: center;
+  width: 100%;
+  max-width: 640px;
+  aspect-ratio: 1 / 1;
 }
+.hero-sculpture { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
 .hero-copy {
   position: relative;
@@ -236,22 +230,6 @@ a { color: inherit; text-decoration: none; }
   max-width: 720px;
   container-type: inline-size;
 }
-
-/* The spaced wordmark is the concept's poster signature: the system named in
-   mono, sitting in the composition's own negative space below the symbol. */
-.hero-wordmark {
-  position: absolute;
-  pointer-events: none;
-  left: 50%; bottom: 2%;
-  transform: translateX(-50%);
-  margin: 0;
-  display: flex; align-items: center; gap: 0.5em;
-  font-family: var(--mono);
-  font-size: 11px; letter-spacing: 0.62em; text-indent: 0.62em;
-  color: var(--ju-muted);
-  white-space: nowrap;
-}
-.hero-wordmark span { color: var(--ju-lime); }
 
 /* Hero headline.
    Each authored line is its own block. `keep-all` stops Korean splitting
@@ -283,7 +261,14 @@ a { color: inherit; text-decoration: none; }
 .hero-title em { font-style: normal; color: var(--ju-lime); }
 .display, .title, .story-title { word-break: keep-all; overflow-wrap: normal; }
 
-.hero-sub { margin: 0; color: var(--ju-muted); font-size: 15px; line-height: 1.7; }
+.hero-sub { margin: 0; color: #c2c4bd; font-size: 17px; line-height: 1.68; }
+
+/* Section index tags — the same signal grammar as the hero object, lightly. */
+.band-kind {
+  margin-left: 10px; font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--ju-mint);
+  opacity: 0.85;
+}
 
 .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
@@ -366,91 +351,18 @@ a { color: inherit; text-decoration: none; }
 .banner .recname { font-weight: 800; color: var(--ju-paper); }
 .banner a { color: var(--ju-lime); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 
-/* Founder portrait: derived dot geometry, background-integrated, unboxed.
-   Raw source never reaches the site. The field itself is positioned with the
-   hero poster above; nothing here re-boxes it. */
-.signal-field {
-  position: absolute; inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(55% 48% at 38% 36%, rgba(242, 241, 234, 0.045), transparent 72%),
-    radial-gradient(50% 45% at 78% 78%, rgba(216, 255, 79, 0.06), transparent 70%),
-    radial-gradient(45% 40% at 20% 80%, rgba(141, 246, 220, 0.04), transparent 72%);
-}
-
-/* Dot size/alpha come from the derived geometry via portal.js (inline
-   width/height and --a). The mask stays closest-side so the field cannot
-   end in a rectangle, but the opaque core is wide enough that the eyes,
-   nose, mouth and jaw are not dissolved.
-   The field itself never moves: each dot carries its own --dx/--dy pointer
-   displacement, so the response is per-particle and local. */
-.portrait-dots {
-  position: absolute; inset: 0;
-  /* closest-side: the ellipse always ends inside the field, so every edge of
-     the dot grid is fully transparent and no rectangle can show. The core is
-     held opaque out to 70% so the face keeps its structure against type. */
-  -webkit-mask-image: radial-gradient(closest-side at 50% 46%, #000 70%, rgba(0, 0, 0, 0.7) 88%, transparent 100%);
-  mask-image: radial-gradient(closest-side at 50% 46%, #000 70%, rgba(0, 0, 0, 0.7) 88%, transparent 100%);
-  opacity: 1;
-}
-
-.portrait-dot {
-  position: absolute; border-radius: 50%;
-  opacity: var(--a, 0.5);
-  /* Centring plus this dot's own pointer displacement (set by portal.js).
-     The easing is short so the field feels responsive but still settles. */
-  transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px)));
-  transition: transform 0.28s var(--ease);
-}
-.portrait-dot.hi { background: var(--ju-paper); }
-.portrait-dot.mid { background: #c9c8bf; }
-.portrait-dot.lo { background: var(--ju-muted); }
-
-/* Signal paths: two dotted lime lines that cross the field behind the
-   portrait, read as the signal travelling. They draw in during RESOLVE. */
-.signal-paths { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.signal-paths path {
-  fill: none; stroke: rgba(216, 255, 79, 0.28); stroke-width: 1;
-  stroke-dasharray: 2 9; stroke-linecap: round;
-}
-
-/* The JU Signal Dot Mark is the primary symbol; it resolves out of the empty
-   side of the field, low-right, so it never covers the face. The mark is not
-   moved as one block: portal.js gives each of its circles its own --dx/--dy,
-   at a lower amplitude than the portrait. */
-.signal-resolve {
-  position: absolute; right: 2%; bottom: 6%;
-  width: clamp(68px, 9vw, 126px);
-  color: var(--ju-paper);
-}
-/* Resting opacity lives on the inner mark so the resolve keyframe (which ends
-   at opacity 1 on the wrapper) does not override it. */
-.signal-resolve .tile-signal { display: block; width: 100%; opacity: 0.76; }
-.signal-resolve svg { width: 100%; height: auto; }
-
-.signal-node {
-  position: absolute;
-  width: 12px; height: 12px; border-radius: 50%;
-  background: var(--ju-lime);
-  box-shadow: 0 0 22px 5px rgba(216, 255, 79, 0.28);
-}
-.signal-node-a { top: 24%; left: 50%; }
-.signal-node-b { bottom: 24%; left: 10%; width: 9px; height: 9px; opacity: 0.7; }
-.signal-node-c { top: 58%; right: 10%; width: 7px; height: 7px; opacity: 0.55; }
-
 /* ══ brand story bands (01–04) ══════════════════════════════ */
 
 /* The BRAND VALUE figure sits in its own grid column instead of floating over
    the copy. An absolutely-positioned decorative layer always overlaps its
    siblings' boxes, which reads as a real overlap in layout auditing even when
    nothing is visually colliding. */
-/* Narrative bands are scenes, not sections: the tall editorial whitespace is
-   what makes one idea land per screen. */
+/* Narrative scenes keep the copy readable and give each sculpture its own zone. */
 .band-story {
   position: relative;
-  gap: 24px;
+  gap: clamp(24px, 3vw, 42px);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.78fr);
   align-items: start;
   padding: clamp(72px, 11vw, 168px) 0;
 }
@@ -461,31 +373,31 @@ a { color: inherit; text-decoration: none; }
 
 @media (max-width: 900px) {
   .band-story { grid-template-columns: minmax(0, 1fr); }
-  .story-figure { display: none; }
+  .band-story .story-figure { display: block; grid-column: 1; width: min(100%, 520px); margin-inline: auto; }
 }
-.story-body { display: flex; flex-direction: column; gap: 22px; max-width: 860px; }
+.story-body { display: flex; flex-direction: column; gap: 22px; max-width: 680px; }
 
 .story-title {
   margin: 0;
-  font-size: clamp(26px, 3.1vw, 44px);
-  line-height: 1.18;
+  font-size: clamp(32px, 4vw, 58px);
+  line-height: 1.14;
   letter-spacing: -0.03em;
   font-weight: 800;
   text-wrap: balance;
 }
 .story-rule { height: 1px; width: min(100%, 520px); background: var(--ju-line); transform-origin: left; }
-.story-text { margin: 0; color: var(--ju-muted); font-size: 15px; line-height: 1.75; max-width: 46rem; }
+.story-text { margin: 0; color: #c2c4bd; font-size: 18px; line-height: 1.68; max-width: 620px; }
 
 .story-cols {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.55fr);
-  gap: clamp(20px, 3vw, 48px);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
   align-items: start;
 }
-.story-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.story-list { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 10px 22px; }
 .story-list li {
   position: relative; padding-left: 18px;
-  font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
+  font-size: 17px; line-height: 1.55;
   color: var(--ju-paper);
 }
 .story-list li::before {
@@ -494,101 +406,81 @@ a { color: inherit; text-decoration: none; }
   background: var(--ju-lime);
 }
 
-/* 01: a sparse signal figure sits in the right-hand negative space. */
+/* 01: a wide, assembled architectural frame. */
 .story-figure {
   position: relative;
   width: 100%;
-  height: clamp(140px, 20vw, 240px);
-  pointer-events: none;
-  -webkit-mask-image: radial-gradient(60% 60% at 50% 50%, #000 40%, transparent 95%);
-  mask-image: radial-gradient(60% 60% at 50% 50%, #000 40%, transparent 95%);
+  aspect-ratio: 1.65 / 1;
+  max-height: 380px;
 }
-.story-dot {
-  position: absolute; border-radius: 50%;
-  width: 4px; height: 4px;
-  background: var(--ju-paper);
-  opacity: var(--a, 0.5);
-  transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px)));
-  transition: transform 0.3s var(--ease);
+.section-sculpture {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; display: block;
 }
-.story-dot.is-lime { background: var(--ju-lime); }
 
-/* 02/03 beats: copy left, signal visual right. */
+/* 02 keeps the Korean explanation, composer and receiving channel separate. */
 .beat {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
   gap: clamp(20px, 3vw, 48px);
-  align-items: center;
+  align-items: start;
 }
 .beat > div:first-child { display: flex; flex-direction: column; gap: 18px; }
-.beat-title { font-size: clamp(24px, 2.6vw, 38px); }
+.beat-title { font-size: clamp(32px, 4vw, 58px); }
+.beat-visual { min-width: 0; }
+.instruction-visual {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.68fr) minmax(0, 1.4fr);
+  align-items: center;
+  gap: clamp(18px, 2.5vw, 32px);
+}
+.instruction-composer {
+  display: grid; align-content: center; gap: 12px;
+  min-height: 136px; padding: 20px;
+  border: 1px solid #363833; background: var(--ju-panel);
+  color: var(--ju-paper); font-size: 17px; line-height: 1.6;
+}
+.instruction-composer .prompt-example { color: var(--ju-lime); font-size: 12px; }
+.prompt-cursor { display: none; }
+.prompt-text { white-space: normal; }
+.receiver-stage { position: relative; width: 100%; aspect-ratio: 1.35 / 1; min-height: 250px; }
 
-/* The visual is not a panel. The objects float on the page background with a
-   hairline and a soft field glow instead of a bordered card with a grid, so the
-   section reads as type + line + signal rather than a box inside a band. */
-.beat-visual {
-  position: relative; min-height: 220px;
-  overflow: hidden;
-  background:
-    radial-gradient(70% 80% at 30% 50%, rgba(141, 246, 220, 0.05), transparent 72%);
-}
-.beat-visual::before {
-  content: '';
-  position: absolute; left: 0; right: 0; top: 50%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--ju-line) 18%, var(--ju-line) 82%, transparent);
-}
-/* The figure sits behind the prompt, so it is held well back: smaller, dimmer,
-   and masked so its centre clears the text it sits behind. */
-.beat-dots {
-  position: absolute; inset: 0;
-  opacity: 0.34;
-  -webkit-mask-image: radial-gradient(closest-side at 50% 50%, transparent 34%, #000 78%);
-  mask-image: radial-gradient(closest-side at 50% 50%, transparent 34%, #000 78%);
-}
-.beat-dots .story-dot { width: 3px; height: 3px; }
-
-/* The prompt is a single spoken line, not a form. It keeps a hairline because
-   it is a real quoted instruction, but drops the panel fill and radius so it
-   sits in the same space as the signal it produces. It rides above the figure. */
-.prompt {
-  position: absolute; left: 24px; right: 24px; top: 50%;
-  transform: translateY(-50%);
-  z-index: 1;
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--ju-line);
-  font-size: 15px; color: var(--ju-paper);
-}
-.prompt-example { position: absolute; left: 0; top: -16px; padding: 0; background: none; color: var(--ju-lime); }
-.prompt-cursor { color: var(--ju-lime); font-weight: 800; }
-.prompt-text { white-space: nowrap; overflow: hidden; }
-.signal-track {
-  position: absolute; left: 24px; right: 24px; bottom: 26px; height: 1px;
-  background: var(--ju-line);
-}
-.signal-runner {
-  position: absolute; top: 50%; left: 100%;
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--ju-lime);
-  box-shadow: 0 0 14px 3px rgba(216, 255, 79, 0.35);
-  transform: translate(-50%, -50%);
-}
-
+/* 03 changes the reading rhythm: copy first, then the dominant machine core,
+   with its four labels in normal flow below the canvas. */
+.process-band .beat { grid-template-columns: minmax(0, 1fr); }
+.process-band .beat > div:first-child { max-width: 680px; }
+.process-visual { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.engine-stage { position: relative; width: 100%; aspect-ratio: 2.2 / 1; min-height: 310px; }
 .states {
-  position: absolute; inset: 0;
-  margin: 0; padding: 28px 24px; list-style: none;
-  display: flex; flex-wrap: wrap; align-content: center; gap: 10px;
+  position: relative; margin: 0; padding: 0; list-style: none;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
 }
-.chip.state { gap: 8px; padding: 9px 13px; font-size: 11px; position: relative; z-index: 1; }
+.chip.state { gap: 8px; padding: 9px 13px; font-size: 11px; }
 .state-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ju-muted); }
-/* Resolved state is the default (no JS, reduced motion, or after the sequence). */
-.chip.state { color: var(--ju-paper); border-color: var(--ju-mint); background: var(--ju-black); }
+.chip.state { color: var(--ju-paper); border-color: #52665a; background: transparent; }
 .chip.state .state-dot { background: var(--ju-mint); }
-.work-line {
-  position: absolute; left: 24px; right: 24px; top: 50%; height: 1px;
-  background: var(--ju-mint); opacity: 0.35;
-  transform-origin: left;
+
+/* 04: keep the resolved form in its own grid cell instead of stretching its
+   canvas over the entire story band. */
+.band-story .resolve-stage {
+  position: relative;
+  grid-column: 2;
+  width: min(100%, 520px);
+  aspect-ratio: 1.65 / 1;
+  max-height: 340px;
+  justify-self: end;
+}
+@media (max-width: 900px) {
+  .band-story .resolve-stage { grid-column: 1; width: min(100%, 560px); margin-inline: auto; justify-self: center; }
+}
+
+/* 04 resolution status + delivery: the orchestration thread completes, the status
+   resolves, then the real product tiles land one by one — the process structure
+   arriving as product output. */
+.band-status {
+  margin: 0; font-family: var(--mono);
+  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ju-mint);
 }
 
 .band-resolve > .grid { margin-top: 8px; }
@@ -874,34 +766,23 @@ body.is-locked { overflow: hidden; }
 .foot-mark { font-size: 20px; font-weight: 900; letter-spacing: -1px; }
 .foot-year { margin-left: auto; }
 
-/* ══ motion: APPEAR -> ASSEMBLE -> RESOLVE ══════════════════ */
+/* ══ motion: APPEAR -> CONNECT -> PROCESS -> RESOLVE ═══════ */
+/* One deliberate exception to "nothing loops": the hero sculpture. It is a living
+   ambient object drawn on <canvas> in portal.js and may loop seamlessly. It is NOT
+   a CSS animation, so no keyframe below loops — the narrative pieces still resolve
+   once and settle. */
 
 @keyframes ju-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes ju-draw { from { opacity: 0; transform: scale(0.86); } to { opacity: 1; transform: none; } }
 /* The dot draw must keep each dot's own pointer displacement in its end state,
    or the filled animation would hold `transform: none` over it forever. */
-@keyframes ju-dot-draw {
-  from { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(0.86); }
-  to { opacity: 1; transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))); }
-}
-@keyframes ju-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
 @keyframes ju-sweep { from { transform: translateX(-100%); opacity: 0; } 30% { opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
-@keyframes ju-assemble {
-  from { opacity: 0; transform: translate(calc(-50% + var(--ox, 0px)), calc(-50% + var(--oy, 0px))) scale(0.4); }
-  60% { opacity: var(--a, 0.5); }
-  to { opacity: var(--a, 0.5); transform: translate(-50%, -50%) scale(1); }
-}
-@keyframes ju-node-in { from { opacity: 0; transform: scale(0.2); } to { opacity: 1; transform: scale(1); } }
-@keyframes ju-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ju-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes ju-type { from { max-width: 0; } to { max-width: 100%; } }
-@keyframes ju-run { from { left: 0; opacity: 0; } 10% { opacity: 1; } to { left: 100%; opacity: 1; } }
 @keyframes ju-state-on {
   from { color: var(--ju-muted); border-color: var(--ju-line); }
   to { color: var(--ju-paper); border-color: var(--ju-mint); }
 }
 @keyframes ju-state-dot-on { from { background: var(--ju-muted); } to { background: var(--ju-mint); } }
-@keyframes ju-text-settle { from { transform: translateY(4px); } to { transform: translateY(0); } }
 
 .js-reveal .reveal { opacity: 0; }
 .js-reveal .reveal.is-in { animation: ju-rise 0.62s var(--ease) forwards; }
@@ -909,64 +790,36 @@ body.is-locked { overflow: hidden; }
    hover lifts, so portal.js marks it done and hands the transform back. */
 .js-reveal .reveal.is-done { animation: none; opacity: 1; }
 
-/* ── hero timeline (.hero.is-sequenced, added once by portal.js in normal
-   motion). Text is never hidden: it only settles.
-     APPEAR    0.00–0.35s  sparse 'lo' dots land
-     ASSEMBLE  0.35–2.15s  'mid'/'hi' dots travel in and form the portrait
-     RESOLVE   1.60s       signal paths fade in
-               1.90–2.20s  lime nodes activate
-               2.10s       JU Signal Dot Mark resolves
-               2.40–2.90s  hero text settles
-   Every delay is derived from grid position or child index, never random. ── */
-.hero.is-sequenced .portrait-dot {
-  animation: ju-assemble 0.9s var(--ease) both;
-  animation-delay: var(--d, 0s);
-}
-/* Once the last dot has landed the ASSEMBLE fill is released, so `transform`
-   belongs to the dot itself and its pointer displacement can take over. The
-   keyframe's end state is the same position the base rule resolves to, so
-   releasing it is visually a no-op. portal.js adds this from the same derived
-   delays, not a hardcoded constant. */
-.hero.is-sequenced.is-settled .portrait-dot { animation: none; }
-.hero.is-sequenced .signal-paths { animation: ju-fade-in 0.8s var(--ease) 1.6s both; }
-.hero.is-sequenced .signal-node { animation: ju-node-in 0.5s var(--ease) both, ju-pulse 3.4s ease-in-out infinite; }
-.hero.is-sequenced .signal-node-a { animation-delay: 1.9s, 2.4s; }
-.hero.is-sequenced .signal-node-b { animation-delay: 2.05s, 2.55s; }
-.hero.is-sequenced .signal-node-c { animation-delay: 2.2s, 2.7s; }
-.hero.is-sequenced .signal-resolve { animation: ju-node-in 0.65s var(--ease) 2.1s both; }
-.hero.is-sequenced .hero-copy > * { animation: ju-text-settle 0.45s var(--ease) both; }
-.hero.is-sequenced .hero-copy > :nth-child(1) { animation-delay: 2.4s; }
-.hero.is-sequenced .hero-copy > :nth-child(2) { animation-delay: 2.5s; }
-.hero.is-sequenced .hero-copy > :nth-child(3) { animation-delay: 2.6s; }
-.hero.is-sequenced .hero-copy > :nth-child(4) { animation-delay: 2.7s; }
-.hero.is-sequenced .hero-copy > :nth-child(5) { animation-delay: 2.8s; }
-.hero.is-sequenced .hero-copy > :nth-child(n + 6) { animation-delay: 2.9s; }
-/* Idle motion lives only in the hero: the lime nodes breathe, nothing else loops. */
-.signal-node { animation: ju-pulse 3.4s ease-in-out infinite; }
-.signal-node-b { animation-delay: 0.5s; }
-.signal-node-c { animation-delay: 1.1s; }
+/* ── hero (.hero.is-sequenced, added once by portal.js in normal motion).
+   The hero no longer carries a startup timeline: its one object is the
+   volumetric ASCII sculpture, drawn frame by frame on <canvas> in portal.js, so
+   there are no pre-authored frames or caption nodes to sequence. `.is-sequenced`
+   marks that live motion is enabled and the stage arrives as one object; reduced
+   motion never adds it and portal.js paints a single static frame instead. ── */
+.hero.is-sequenced .hero-stage { animation: ju-rise 0.6s var(--ease) both; }
 
-/* ── story bands 01–04 (.band-story.is-in, added once per section when seen).
-   Before .is-in the pieces hold their start state; after, they play once and
-   stop on the resolved state. Without .js-reveal nothing is ever hidden. ── */
-.js-reveal .band-story .story-dot { opacity: 0; }
-.js-reveal .band-story.is-in .story-dot { animation: ju-dot-draw 0.6s var(--ease) both; animation-delay: var(--d, 0s); }
+/* ── story bands 01–04 resolve one volumetric form when they enter view. ── */
 .js-reveal .band-story .story-rule { transform: scaleX(0); }
 .js-reveal .band-story.is-in .story-rule { animation: ju-grow 0.9s var(--ease) 0.3s both; }
 
-/* 02: human signal → prompt types out → signal travels along the track. */
-.js-reveal .band-story .prompt-text { max-width: 0; }
-.js-reveal .band-story.is-in .prompt-text { animation: ju-type 1.3s steps(18, end) 0.7s both; }
-.js-reveal .band-story .signal-runner { opacity: 0; }
-.js-reveal .band-story.is-in .signal-runner { animation: ju-run 1.4s var(--ease) 2.1s both; }
-
-/* 03: states start dark and light up one by one: Planning → Generating → Building → Testing. */
+/* 03 labels follow the engine's longer plan → build → test sequence. */
 .js-reveal .band-story:not(.is-in) .chip.state { color: var(--ju-muted); border-color: var(--ju-line); }
 .js-reveal .band-story:not(.is-in) .chip.state .state-dot { background: var(--ju-muted); }
-.js-reveal .band-story.is-in .chip.state { animation: ju-state-on 0.4s var(--ease) both; animation-delay: calc(0.5s + var(--i, 0) * 0.55s); }
-.js-reveal .band-story.is-in .chip.state .state-dot { animation: ju-state-dot-on 0.4s var(--ease) both; animation-delay: calc(0.5s + var(--i, 0) * 0.55s); }
-.js-reveal .band-story .work-line { transform: scaleX(0); }
-.js-reveal .band-story.is-in .work-line { animation: ju-grow 2.4s var(--ease) 0.4s both; }
+.js-reveal .band-story.is-in .chip.state { animation: ju-state-on 0.4s var(--ease) both; animation-delay: calc(0.4s + var(--i, 0) * 2.75s); }
+.js-reveal .band-story.is-in .chip.state .state-dot { animation: ju-state-dot-on 0.4s var(--ease) both; animation-delay: calc(0.4s + var(--i, 0) * 2.75s); }
+
+/* 04: the process line completes, then the resolution status appears. */
+.js-reveal .band-story .band-status { opacity: 0; }
+.js-reveal .band-story.is-in .band-status { animation: ju-rise 0.5s var(--ease) 1.7s both; }
+/* 04's delivery: the real product tiles land in sequence after the status —
+   the process structure resolving into product output. Fixed nth-child delays
+   so they arrive one by one, never as one flat fade. (JS is not needed: the
+   resolve grid has exactly two product tiles.) */
+.js-reveal .band-resolve .grid .tile { opacity: 0; }
+.js-reveal .band-resolve:not(.is-resolved) .grid .tile { opacity: 0; }
+.js-reveal .band-resolve.is-resolved .grid .tile { animation: ju-rise 0.55s var(--ease) both; }
+.js-reveal .band-resolve.is-resolved .grid .tile:nth-child(1) { animation-delay: 0s; }
+.js-reveal .band-resolve.is-resolved .grid .tile:nth-child(2) { animation-delay: 0.35s; }
 
 /* ══ responsive ═════════════════════════════════════════════ */
 
@@ -1009,24 +862,9 @@ body.is-locked { overflow: hidden; }
 
   .main { margin-left: 0; max-width: 100%; padding: 0 var(--pad); }
 
-  /* The poster folds to a single stacked composition: the field becomes a
-     shallow band above the copy instead of a right-hand column. */
-  .hero { grid-template-columns: 1fr; gap: 20px; min-height: 0; padding: 26px 0 44px; }
-  .hero-signal {
-    position: relative;
-    top: auto; right: auto; transform: none;
-    order: -1;
-    width: 100%;
-    aspect-ratio: 1 / 0.58;
-    max-height: 300px;
-    margin-bottom: 4px;
-  }
-  .portrait-dots {
-    -webkit-mask-image: radial-gradient(closest-side at 50% 48%, #000 64%, rgba(0, 0, 0, 0.7) 86%, transparent 100%);
-    mask-image: radial-gradient(closest-side at 50% 48%, #000 64%, rgba(0, 0, 0, 0.7) 86%, transparent 100%);
-  }
-  .signal-resolve { width: 64px; right: 4%; bottom: 10%; }
-  .hero-wordmark { font-size: 10px; letter-spacing: 0.44em; bottom: 0; }
+  /* The sculpture stacks under the copy; the stage stays a reduced square. */
+  .hero { grid-template-columns: 1fr; gap: 22px; min-height: 0; padding: 26px 0 44px; }
+  .hero-stage { max-width: 420px; margin: 0 auto; }
   /* Mobile reflows at phrase boundaries only; keep-all (inherited) still
      forbids a break inside a Korean word. */
   .hero-title { font-size: clamp(25px, 7.4cqi, 34px); text-shadow: none; }
@@ -1034,8 +872,10 @@ body.is-locked { overflow: hidden; }
 
   .story-cols { grid-template-columns: 1fr; }
   .beat { grid-template-columns: 1fr; gap: 18px; }
-  .beat-visual { min-height: 190px; }
-  .prompt { font-size: 14px; }
+  .instruction-visual { grid-template-columns: minmax(150px, 0.72fr) minmax(0, 1.28fr); }
+  .receiver-stage { min-height: 240px; }
+  .engine-stage { aspect-ratio: 1.85 / 1; min-height: 280px; }
+  .story-text { font-size: 17px; line-height: 1.7; }
 
   .heroProduct { grid-template-columns: 1fr; }
   .foot-year { margin-left: 0; }
@@ -1044,13 +884,17 @@ body.is-locked { overflow: hidden; }
 @media (max-width: 420px) {
   .display { font-size: 26px; }
   .detail-title { font-size: 24px; }
-  .hero-title { font-size: 25px; }
-  .story-title { font-size: 25px; }
+  .hero-title { font-size: 31px; }
+  .story-title, .beat-title { font-size: clamp(32px, 9vw, 38px); }
+  .story-text { max-width: 34ch; }
+  .instruction-visual { grid-template-columns: minmax(0, 1fr); }
+  .receiver-stage { min-height: 220px; aspect-ratio: 1.45 / 1; }
+  .engine-stage { min-height: 250px; aspect-ratio: 1.35 / 1; }
+  .band-story { padding-block: 56px; }
 }
 
 /* Touch / coarse pointer: no pointer-follow, interactions still reveal. */
 @media (hover: none) {
-  .portrait-dots, .signal-resolve { transform: none; }
   .tile-signal circle { transform: none; }
 }
 
@@ -1063,17 +907,14 @@ body.is-locked { overflow: hidden; }
     animation: none !important;
     transition: none !important;
   }
-  /* ...and every piece shows its RESOLVED end state immediately: portrait,
-     signal paths, nodes, symbol, copy, story figures, prompt, workflow states. */
+  /* ...and every piece shows its RESOLVED end state immediately: copy, story
+     figures, prompt, states, product tiles. The hero sculpture needs no rule
+     here — it is a <canvas>, so portal.js paints one static frame instead. */
   .js-reveal .reveal { opacity: 1 !important; }
-  .portrait-dot { opacity: var(--a, 0.5) !important; transform: translate(-50%, -50%) !important; }
-  .signal-node { opacity: 1 !important; }
-  .signal-resolve { opacity: 1 !important; }
-  .story-dot { opacity: var(--a, 0.5) !important; }
-  .story-rule, .work-line { transform: scaleX(1) !important; }
-  .prompt-text { max-width: 100% !important; }
-  .signal-runner { opacity: 1 !important; }
+  .js-reveal .band-resolve .grid .tile { opacity: 1 !important; }
+  .story-rule { transform: scaleX(1) !important; opacity: 1 !important; }
   .js-reveal .band-story .chip.state { color: var(--ju-paper) !important; border-color: var(--ju-mint) !important; }
   .js-reveal .band-story .chip.state .state-dot { background: var(--ju-mint) !important; }
-  .portrait-dots, .signal-resolve, .tile-signal circle { transform: none !important; }
+  .band-status { opacity: 1 !important; }
+  .tile-signal circle { transform: none !important; }
 }
