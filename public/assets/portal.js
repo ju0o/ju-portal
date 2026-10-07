@@ -89,12 +89,15 @@
     var LIME = VOL_LIME;
     var MODE = opts.mode || 'loop';
     var FORM = opts.form || 'hero';
+    var pointerProfile = opts.pointer || null;
 
     var W = 0, H = 0, U = 0, V = 0, pts = null;
     var bufW = 0, bufH = 0, dpr = 1, img = null, data = null;
     var running = false, raf = 0, resolved = false, built = false;
+    var stageVisible = false, pointerTarget = 0, pointerStrength = 0;
     var t0 = 0, acc = 0, last = 0, wallMs = 0;
     var px = -9999, py = -9999, tpx = -9999, tpy = -9999, pointerOn = false;
+    var pointerResult = { x: 0, y: 0 };
 
     function sizeCanvas() {
       var w = canvas.clientWidth, h = canvas.clientHeight;
@@ -341,6 +344,38 @@
       ];
     }
 
+    /** Apply one bounded, scene-specific point response without moving its stage. */
+    function deformLowerPoint(x, y, q) {
+      pointerResult.x = x; pointerResult.y = y;
+      if (!pointerProfile || !pointerOn || pointerStrength <= 0) return pointerResult;
+      if (pointerProfile.mode === 'bend' && q.group !== 'receiver') return pointerResult;
+      if (pointerProfile.mode === 'engine' && q.group !== 'module' && q.group !== 'volume') return pointerResult;
+      if (pointerProfile.mode === 'separate' && q.group !== 'plane') return pointerResult;
+
+      var dx = px * dpr - x, dy = py * dpr - y;
+      var distance = Math.sqrt(dx * dx + dy * dy);
+      var reach = pointerProfile.reach * dpr;
+      if (distance < 0.001 || distance >= reach) return pointerResult;
+      var falloff = 1 - distance / reach;
+      var amount = falloff * falloff * pointerProfile.max * dpr * pointerStrength;
+      var nx = dx / distance, ny = dy / distance;
+
+      if (pointerProfile.mode === 'organize') {
+        pointerResult.x += nx * amount;
+        pointerResult.y += ny * amount;
+      } else if (pointerProfile.mode === 'bend') {
+        pointerResult.x += nx * amount * 0.28;
+        pointerResult.y += ny * amount * 0.82;
+      } else if (pointerProfile.mode === 'engine') {
+        pointerResult.x -= ny * amount;
+        pointerResult.y += nx * amount;
+      } else if (pointerProfile.mode === 'separate') {
+        pointerResult.x += (q.x0 < 0 ? -1 : 1) * amount;
+        pointerResult.y += ny * amount * 0.18;
+      }
+      return pointerResult;
+    }
+
     function draw(t, rotMs) {
       if (!pts || !data) return;
       if (rotMs == null) rotMs = 0;
@@ -471,14 +506,19 @@
 
         // secondary pointer response: a small local bend, object keeps morphing
         if (pointerOn) {
-          var ax = sxp - px * dpr, ay = syp - py * dpr;
-          var dd = Math.sqrt(ax * ax + ay * ay);
-          var reach = P_RADIUS * dpr;
-          if (dd > 0.001 && dd < reach) {
-            var f2 = 1 - dd / reach;
-            f2 = f2 * f2 * P_MAX * dpr;
-            sxp += ax / dd * f2;
-            syp += ay / dd * f2;
+          if (FORM === 'hero') {
+            var ax = sxp - px * dpr, ay = syp - py * dpr;
+            var dd = Math.sqrt(ax * ax + ay * ay);
+            var reach = P_RADIUS * dpr;
+            if (dd > 0.001 && dd < reach) {
+              var f2 = 1 - dd / reach;
+              f2 = f2 * f2 * P_MAX * dpr;
+              sxp += ax / dd * f2;
+              syp += ay / dd * f2;
+            }
+          } else {
+            var response = deformLowerPoint(sxp, syp, q);
+            sxp = response.x; syp = response.y;
           }
         }
 
@@ -528,22 +568,34 @@
       wallMs += dt;
       var t, completed = false;
       if (MODE === 'once') {
-        acc += dt;
-        t = acc / LOOP_MS;
-        if (t >= 1) { t = 0.999; resolved = true; completed = true; stopLoop(); }
+        if (resolved) {
+          t = 0.999;
+        } else {
+          acc += dt;
+          t = acc / LOOP_MS;
+          if (t >= 1) { t = 0.999; resolved = true; completed = true; }
+        }
       } else {
         var t2 = ((ts - t0) / LOOP_MS) % 1;
         if (t2 < 0) t2 += 1;
         t = t2;
       }
+      if (pointerProfile) {
+        pointerStrength += (pointerTarget - pointerStrength) * 0.18;
+        if (!pointerTarget && pointerStrength < 0.012) {
+          pointerStrength = 0;
+          pointerOn = false;
+        }
+      }
       if (pointerOn) { px += (tpx - px) * 0.22; py += (tpy - py) * 0.22; }
       draw(t, wallMs);
       if (completed && opts.onResolve) window.requestAnimationFrame(opts.onResolve);
+      if (MODE === 'once' && resolved && (!pointerProfile || (!pointerOn && pointerStrength === 0))) stopLoop();
     }
     function startLoop() {
       if (running) return;
       if (!built) return;
-      if (MODE === 'once' && resolved) { draw(0.999); return; }
+      if (MODE === 'once' && resolved && (!pointerProfile || !pointerOn || !stageVisible)) { draw(0.999); return; }
       running = true;
       last = 0;
       raf = window.requestAnimationFrame(frame);
@@ -573,22 +625,44 @@
           tpx = e.offsetX; tpy = e.offsetY;
         }, { passive: true });
         canvas.addEventListener('pointerleave', function () { pointerOn = false; }, { passive: true });
+      } else if (pointerProfile && finePointer) {
+        canvas.addEventListener('pointerenter', function (e) {
+          px = tpx = e.offsetX; py = tpy = e.offsetY;
+          pointerOn = true; pointerTarget = 1;
+          if (resolved && stageVisible) startLoop();
+        }, { passive: true });
+        canvas.addEventListener('pointermove', function (e) {
+          if (!pointerOn) { px = e.offsetX; py = e.offsetY; pointerOn = true; }
+          tpx = e.offsetX; tpy = e.offsetY; pointerTarget = 1;
+          if (resolved && stageVisible) startLoop();
+        }, { passive: true });
+        canvas.addEventListener('pointerleave', function () {
+          pointerTarget = 0;
+          if (!pointerStrength) pointerOn = false;
+        }, { passive: true });
       }
 
       // Pause rendering while the host is offscreen; resume when it returns.
       if (opts.pause === false) {
+        stageVisible = true;
         startLoop();
       } else if (canObserve) {
         var vis = new IntersectionObserver(function (entries) {
           for (var i = 0; i < entries.length; i++) {
             if (entries[i].isIntersecting) {
+              stageVisible = true;
               if (!built) { buildLattice(); built = true; draw(0); }
               startLoop();
-            } else stopLoop();
+            } else {
+              stageVisible = false;
+              pointerOn = false; pointerTarget = 0; pointerStrength = 0;
+              stopLoop();
+            }
           }
         }, { threshold: 0.02, rootMargin: '0px' });
         vis.observe(stage || canvas);
       } else {
+        stageVisible = true;
         if (!built) { buildLattice(); built = true; draw(0); }
         startLoop();
       }
@@ -641,10 +715,10 @@
   // One sculpture per narrative section: lighter than Hero, woken by scroll,
   // paused offscreen, one semantic one-shot sequence into a resolved form.
   var SECTION_SCULPTURES = {
-    'brand-value': { form: 'architecture', loopMs: 4200, static: 0.995, density: 'section' },
-    'you-instruct': { form: 'receiver', loopMs: 4400, static: 0.995, density: 'section' },
-    'ai-works': { form: 'engine', loopMs: 9500, static: 0.995, density: 'section' },
-    'real-tool': { form: 'output', loopMs: 5400, static: 0.995, density: 'compact' }
+    'brand-value': { form: 'architecture', loopMs: 4200, static: 0.995, density: 'section', pointer: { mode: 'organize', reach: 142, max: 5.0 } },
+    'you-instruct': { form: 'receiver', loopMs: 4400, static: 0.995, density: 'section', pointer: { mode: 'bend', reach: 138, max: 4.2 } },
+    'ai-works': { form: 'engine', loopMs: 9500, static: 0.995, density: 'section', pointer: { mode: 'engine', reach: 124, max: 2.6 } },
+    'real-tool': { form: 'output', loopMs: 5400, static: 0.995, density: 'compact', pointer: { mode: 'separate', reach: 138, max: 3.2 } }
   };
 
   function initSectionSculptures() {
@@ -657,7 +731,8 @@
         volumetric(canvas, {
           form: spec.form,
           loopMs: spec.loopMs, static: spec.static,
-          reach: 90, max: 5, density: spec.density, mode: 'once',
+          pointer: spec.pointer,
+          density: spec.density, mode: 'once',
           onResolve: canvas.getAttribute('data-section-sculpture') === 'real-tool'
             ? function () {
               var section = canvas.closest('[data-story]');

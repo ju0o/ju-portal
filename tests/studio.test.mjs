@@ -454,7 +454,7 @@ describe('Studio: Publish (frozen / dry-run)', () => {
   test('getState reports the local branch and clean/dirty without network', () => {
     const s = getState(ROOT);
     assert.equal(typeof s.branch, 'string');
-    assert.equal(s.branch, 'feat/portal-studio-v0');
+    assert.equal(s.branch, execReadGit(['rev-parse', '--abbrev-ref', 'HEAD']));
     assert.equal(typeof s.dirty, 'boolean');
     assert.equal(Array.isArray(s.changedFiles), true);
   });
