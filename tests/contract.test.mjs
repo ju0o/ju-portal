@@ -719,8 +719,8 @@ test('sculpture: the loop is seamless and pauses offscreen', () => {
   const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
   assert.ok(/LOOP_MS\s*=\s*opts\.loopMs\s*\|\|\s*9000/.test(js), 'the loop must have a stable default and per-scene period');
   assert.ok(js.includes('requestAnimationFrame') && js.includes('cancelAnimationFrame'), 'the loop runs on rAF and can stop');
-  assert.ok(js.includes('IntersectionObserver') && /else stopLoop\(\)/.test(js), 'render loops pause when their stage leaves view');
-  assert.ok(/if \(entries\[i\]\.isIntersecting\) \{\s+if \(!built\) \{ buildLattice\(\); built = true; draw\(0\); \}/.test(js), 'lower point lattices are deferred until visible');
+  assert.ok(js.includes('IntersectionObserver') && /else\s*\{\s*stageVisible = false;[\s\S]*?stopLoop\(\);/.test(js), 'render loops pause when their stage leaves view');
+  assert.ok(/if \(entries\[i\]\.isIntersecting\) \{\s+stageVisible = true;\s+if \(!built\) \{ buildLattice\(\); built = true; draw\(0\); \}/.test(js), 'lower point lattices are deferred until visible');
   // Seamless is structural: no CSS keyframe may loop, and the canvas is a real object.
   assert.ok(css.includes('.hero-sculpture'), 'the canvas must be styled');
   assert.ok(!/\binfinite\b/.test(css), 'no CSS animation may loop forever');
@@ -785,6 +785,42 @@ test('hero: pointer response is LOCAL and secondary, never whole-hero parallax',
   assert.ok(!/\.hero\s*\{[^}]*transform:/s.test(css), 'the hero itself never transforms (no parallax)');
   assert.ok(!/\.hero-copy\s*\{[^}]*transform:/s.test(css), 'the copy layer never transforms');
   assert.ok(!html.includes('parallax'), 'no parallax');
+});
+
+test('lower sculptures share subtle fine-pointer profiles without moving their stages', () => {
+  const js = readFileSync(join(ROOT, 'public/assets/portal.js'), 'utf8');
+  const css = readFileSync(join(ROOT, 'public/assets/portal.css'), 'utf8');
+  const profiles = [
+    ["'brand-value'", "form: 'architecture'", "mode: 'organize'"],
+    ["'you-instruct'", "form: 'receiver'", "mode: 'bend'"],
+    ["'ai-works'", "form: 'engine'", "mode: 'engine'"],
+    ["'real-tool'", "form: 'output'", "mode: 'separate'"]
+  ];
+  for (const [scene, form, mode] of profiles) {
+    const at = js.indexOf(scene + ': {');
+    assert.ok(at >= 0, `${scene} profile exists`);
+    const end = js.indexOf('\n', at);
+    const definition = js.slice(at, end < 0 ? undefined : end);
+    assert.ok(definition.includes(form) && definition.includes(mode), `${scene} uses its semantic response`);
+  }
+  assert.equal((js.match(/function deformLowerPoint\(/g) || []).length, 1, 'all lower scenes use one deformation helper');
+  assert.ok(js.includes('pointer: spec.pointer'), 'the shared renderer receives each scene profile');
+  assert.ok(js.includes('else if (pointerProfile && finePointer)'), 'lower pointer handlers require a fine pointer');
+  assert.ok(/pointerStrength \+= \(pointerTarget - pointerStrength\) \* 0\.18/.test(js), 'pointer response eases in and returns smoothly');
+  assert.ok(js.includes('pointerTarget = 0;'), 'pointer leave targets the undeformed rest state');
+
+  const boot = js.indexOf('function boot()');
+  const reducedReturn = js.indexOf('if (reduced) return;', boot);
+  const lowerPointerListeners = js.indexOf('else if (pointerProfile && finePointer)', boot);
+  assert.ok(reducedReturn >= 0 && lowerPointerListeners > reducedReturn, 'reduced motion exits before lower pointer listeners are installed');
+  assert.ok(/reach: 150,\s*max: 8/.test(js), 'Hero pointer reach and strength remain unchanged');
+  assert.ok(/sxp \+= ax \/ dd \* f2;\s*syp \+= ay \/ dd \* f2;/.test(js), 'Hero keeps its approved local deformation formula');
+  assert.ok(!/\b(?:stage|canvas)\.style\.transform\b/.test(js), 'pointer handling never transforms a whole stage or canvas');
+  for (const stage of ['hero-stage', 'story-figure', 'receiver-stage', 'engine-stage', 'resolve-stage']) {
+    const rule = new RegExp(`\\.${stage}\\s*\\{([^}]*)\\}`, 's').exec(css);
+    if (rule) assert.ok(!rule[1].includes('transform:'), `${stage} does not move as a panel`);
+  }
+  assert.ok(/stageVisible = false;[\s\S]*?pointerStrength = 0;[\s\S]*?stopLoop\(\);/.test(js), 'offscreen pause also clears pointer state');
 });
 
 test('motion: each lower section carries a motion/state hook', () => {
